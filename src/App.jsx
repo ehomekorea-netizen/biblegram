@@ -1,0 +1,1396 @@
+import React, { useState, useRef, useEffect } from 'react';
+
+// ==========================================
+// 1. 테마 아이콘 정의 (strokeWidth 1.25~1.5의 세련된 아웃라인)
+// ==========================================
+const Icons = {
+  Home: () => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>,
+  Play: () => <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>,
+  Pause: () => <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>,
+  Heart: ({ filled }) => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill={filled ? "#DFBA73" : "none"} stroke={filled ? "#DFBA73" : "currentColor"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>,
+  Share: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>,
+  Music: () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>,
+  Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+  User: () => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  ArrowLeft: () => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>,
+  Sparkles: () => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>,
+  Close: () => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>,
+  Bookmark: ({ filled }) => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill={filled ? "#DFBA73" : "none"} stroke={filled ? "#DFBA73" : "currentColor"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>,
+  Volume: () => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>,
+  VolumeX: () => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>,
+  MessageCircle: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>,
+  Feather: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/></svg>
+};
+
+// ==========================================
+// 2. 초기 기획 및 테마성 프리셋 데이터 정의
+// ==========================================
+const MOCK_FEED_DATA = [
+  {
+    id: 1,
+    text: "여호수아가 또 백성에게 이르되 너희는 자신을 성결하게 하라 여호와께서 내일 너희 가운데에 기이한 일들을 행하시리라 (여호수아 3:5)",
+    image: "https://images.unsplash.com/photo-1518495973542-4542c06a5843?q=80&w=1080&auto=format&fit=crop", 
+    audio: "", 
+    author: "Grace_Lee",
+    likes: 1205,
+    userThought: "다가올 한 주의 새 출발을 앞두고 두려운 마음이 앞섭니다. 세상에 물들지 않고 나를 온전히 성결하게 구별하여 주님이 역사하시는 것을 보게 하옵소서.",
+    meditation: "우리가 준비해야 할 유일한 전제 조건은 스스로를 정결히 구별하는 것입니다. 상황이나 환경을 주도적으로 바꾸려 애쓰기보다, 주님을 향해 우리의 마음판을 성결하게 지켜낼 때 성경에 새겨진 놀라운 이적들이 우리의 일상 속에 실체화될 것입니다."
+  },
+  {
+    id: 2,
+    text: "태초에 말씀이 계시니라 이 말씀이 하나님과 함께 계셨으니 이 말씀은 곧 하나님이시니라 (요한복음 1:1)",
+    image: "https://images.unsplash.com/photo-1501854140801-50d01698950b?q=80&w=1080&auto=format&fit=crop", 
+    author: "David_99",
+    likes: 342,
+    userThought: "매일 넘쳐나는 가짜 뉴스와 자극적인 콘텐츠들 속에 귀를 닫고, 오로지 태초부터 살아 역동해 온 진짜 주님의 말씀만을 심장에 채우게 도와주소서.",
+    meditation: "우주 만물의 탄생보다 먼저 존재했던 절대 진리는 곧 하나님의 생명의 말씀입니다. 매일 아침 안개처럼 스러질 인간의 위로에 기대는 대신, 영원히 쇠하지 않는 신성의 주춧돌 위에 인생을 굳게 고정하십시오."
+  },
+  {
+    id: 3,
+    text: "마음의 즐거움은 양약이라도 심령의 근심은 뼈를 마르게 하느니라 (잠언 17:22)",
+    image: "https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?q=80&w=1080&auto=format&fit=crop", 
+    author: "Joyful_Soul",
+    likes: 89,
+    userThought: "원치 않는 질병의 위기와 막막함 속에서 매순간 기도의 에너지가 꺾이고 낙담이 몰려오지만, 그럼에도 불구하고 하늘 기쁨을 길어 올리게 하소서.",
+    meditation: "근심은 우리의 몸과 영혼을 안으로부터 좀먹는 파괴적인 독소입니다. 그리스도 안에서 허락된 평안과 약속의 기쁨을 믿음으로 선포하고 받아들이는 순간, 상상치 못했던 회복과 새로운 성령의 역사가 영혼과 육체를 동시에 치유하기 시작할 것입니다."
+  }
+];
+
+const USER_PROFILES_META = {
+  "Grace_Lee": { name: "Grace Lee", desc: "빛의 자녀로 순종하며 걷는 이", verseCount: 1, stars: "1.2k" },
+  "David_99": { name: "David Kim", desc: "주의 진리를 묵묵히 탐구하는 청년", verseCount: 1, stars: "342" },
+  "Joyful_Soul": { name: "Joyful Soul", desc: "고난 중에도 항상 기뻐하는 자", verseCount: 1, stars: "89" },
+  "은혜나눔인": { name: "나의 성서서재", desc: "매일 하늘 양식을 모으는 성소", verseCount: 0, stars: "0" }
+};
+
+const FLASHBACK_IMAGES = [
+  "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=400&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=400&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=400&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?q=80&w=400&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1495616811223-4d98c6e9c869?q=80&w=400&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=400&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1473580044384-7ba9967e16a0?q=80&w=400&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1518495973542-4542c06a5843?q=80&w=400&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1494548162494-384bba4ab999?q=80&w=400&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1501854140801-50d01698950b?q=80&w=400&auto=format&fit=crop"
+];
+
+// ==========================================
+// 3. 유틸리티 함수 모음
+// ==========================================
+function base64ToArrayBuffer(base64) {
+  const binaryString = window.atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) { bytes[i] = binaryString.charCodeAt(i); }
+  return bytes.buffer;
+}
+
+function writeString(view, offset, string) {
+  for (let i = 0; i < string.length; i++) { view.setUint8(offset + i, string.charCodeAt(i)); }
+}
+
+function pcmToWav(pcmData, sampleRate) {
+  const numChannels = 1;
+  const bitsPerSample = 16;
+  const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+  const blockAlign = numChannels * (bitsPerSample / 8);
+  const dataSize = pcmData.length * (bitsPerSample / 8);
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+  
+  writeString(view, 0, 'RIFF'); view.setUint32(4, 36 + dataSize, true);
+  writeString(view, 8, 'WAVE'); writeString(view, 12, 'fmt '); view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true); view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true); view.setUint16(34, bitsPerSample, true);
+  writeString(view, 36, 'data'); view.setUint32(40, dataSize, true);
+  
+  let offset = 44;
+  for (let i = 0; i < pcmData.length; i++, offset += 2) { view.setInt16(offset, pcmData[i], true); }
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
+function copyTextFallback(text) {
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.style.position = "fixed"; 
+  textArea.style.top = "0";
+  textArea.style.left = "0";
+  textArea.style.width = "2em";
+  textArea.style.height = "2em";
+  textArea.style.padding = "0";
+  textArea.style.border = "none";
+  textArea.style.outline = "none";
+  textArea.style.boxShadow = "none";
+  textArea.style.background = "transparent";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  try {
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+    return true;
+  } catch (err) {
+    document.body.removeChild(textArea);
+    return false;
+  }
+}
+
+// ==========================================
+// 4. API 통신 모듈 (🚨 에러 원인 제거: 타임아웃 방어 및 완벽 파싱)
+// ==========================================
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || ""; 
+
+async function fetchWithExponentialBackoff(url, options, maxRetries = 5) {
+  if (!apiKey) {
+    throw new Error("Fatal API Error: API key is missing. Please set VITE_GEMINI_API_KEY in your .env.local file.");
+  }
+  const delays = [1000, 2000, 4000, 8000, 16000];
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      // ⭐️ 무한 버퍼링 차단: 20초 안에 응답이 안 오면 연결을 끊어버립니다(Abort).
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+      
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timeoutId);
+      
+      if (response.ok) return response;
+      
+      // 400번대 에러(파라미터 오류 등)는 재시도해도 실패하므로 Fast Fail
+      if (response.status !== 429 && response.status < 500) {
+        throw new Error(`Fatal API Error: ${response.status}`);
+      }
+      if (i === maxRetries - 1) throw new Error(`API Error: ${response.status}`);
+    } catch (err) {
+      if (err.message.includes('Fatal API Error')) {
+        throw err; // 즉각 에러 밖으로 던짐
+      }
+      if (i === maxRetries - 1) throw err;
+    }
+    await new Promise(res => setTimeout(res, delays[i]));
+  }
+}
+
+async function fetchBibleTextFromAI(reference) {
+  const prompt = `사용자가 "${reference}"에 해당하는 성경 구절 또는 성경 범위를 찾으려고 합니다. 개역개정 번역본 기준으로 해당 장절 범위의 본문 전체를 누락 없이 온전히 찾아서 반환해 주세요.
+  
+  [중요 필수 준수 사항]
+  1. 사용자가 범위(예: 마태복음 7:4~7)를 입력한 경우, 반드시 시작 구절(4절)부터 끝 구절(7절)까지 속한 모든 구절을 순서대로 하나도 빼놓지 말고 전부 찾아서 합치십시오. 절대 마지막 구절(7절) 하나만 반환하거나 본문을 축소 가공하여 반환하지 마십시오.
+  2. 낭독과 시각화 레이아웃에 걸맞도록 각 절 사이를 하나의 부드러운 연결 문단으로 병합하여 반환하십시오.
+  3. JSON 형식은 반드시 아래와 같이 완벽한 순수 객체 구조여야 합니다:
+     {"text": "구절 범위 내의 모든 구절 본문들을 순서대로 온전히 나열한 내용... (성경책 장:시작절~끝절)"}`;
+  
+  const payload = { 
+    contents: [{ parts: [{ text: prompt }] }], 
+    generationConfig: { responseMimeType: "application/json" } 
+  };
+  
+  const response = await fetchWithExponentialBackoff(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, 
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+  );
+  
+  const result = await response.json();
+  
+  try {
+    let rawText = result.candidates[0].content.parts[0].text;
+    rawText = rawText.replace(/```json\n?/g, '').replace(/```/g, '').trim();
+    return JSON.parse(rawText).text || "성경 말씀을 가져오지 못했습니다.";
+  } catch (e) {
+    return "요청하신 성경 말씀을 안전하게 가져오지 못했습니다. 다시 시도해 주세요.";
+  }
+}
+
+async function analyzeVerseForVisuals(verse) {
+  const prompt = `다음 성경 구절의 영적/신학적 분위기를 정밀 분석하여, 이에 가장 잘 어울리는 명화풍 배경 설명(영문)과 한 단어의 핵심 영어 신앙 개념을 생성해 주세요.
+  성경 구절: ${verse}
+  형식은 반드시 다음 구조의 완성된 순수 JSON 객체여야 합니다:
+  {
+    "promptSuffix": "beautiful cinematic painting, illustrating [구절의 은혜에 부합하는 묘사(영어)] with extremely holy, soft, volumetric lighting.",
+    "textConcept": "구절의 신학적 메시지를 요약한 영단어 1개 (예: GRACE, FAITH)"
+  }`;
+
+  const payload = { 
+    contents: [{ parts: [{ text: prompt }] }], 
+    generationConfig: { responseMimeType: "application/json" } 
+  };
+  
+  const response = await fetchWithExponentialBackoff(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, 
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+  );
+  
+  const result = await response.json();
+  
+  try {
+    let rawText = result.candidates[0].content.parts[0].text;
+    rawText = rawText.replace(/```json\n?/g, '').replace(/```/g, '').trim();
+    return JSON.parse(rawText);
+  } catch (e) {
+    // ⭐️ 앱 크래시 방지: 분석 실패 시 안전한 기본값 반환
+    return { promptSuffix: "beautiful cinematic holy lighting", textConcept: "GRACE" };
+  }
+}
+
+async function generateMeditation(verse, userThought = "") {
+  let prompt = `다음 성경 구절을 바탕으로 은혜롭고 지혜가 가득한 오늘의 묵상 해설(2~3문장)과 1줄 온전한 기도문을 작성해 주세요.\n\n구절: ${verse}`;
+  if (userThought.trim()) {
+    prompt += `\n\n특히 사용자가 마음을 모아 적어놓은 고백인 [${userThought}]의 상황과 감정을 깊이 경청하고, 이를 위로하고 격려하는 성서적 조언을 조화롭게 포함하여 해설해 주세요.`;
+  }
+  
+  const payload = { 
+    contents: [{ parts: [{ text: prompt }] }],
+    systemInstruction: { parts: [{ text: "당신은 영적으로 무척 지혜롭고 자애로운 기독교 묵상 도우미입니다. 경어체를 쓰며, 주님의 온유하고 평화로운 품을 연상시키는 정중하고 부드러운 어조로 위로와 지혜를 안겨주세요." }] }
+  };
+  
+  const response = await fetchWithExponentialBackoff(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, 
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+  );
+  
+  const result = await response.json();
+  try {
+    return result.candidates[0].content.parts[0].text;
+  } catch (e) {
+    return "은혜 가득한 묵상이 온전하게 수렴되었습니다.";
+  }
+}
+
+async function generateVerseImage(stylePromptSuffix, textConcept) {
+  const englishConcept = textConcept || 'DIVINE FAITH';
+  const prompt = `Highly detailed majestic holy biblical scenery painting. No modern elements. ${stylePromptSuffix} Avoid any distorted text, avoid korean characters, avoid gibberish text. Includes extremely artistic, subtle, and faint classical golden typography of the single English concept word "${englishConcept}" woven organically into the ambient sacred lighting or water reflection. Ultra-high aesthetic values, deep oil on canvas texture, vertical 9:16 aspect ratio.`;
+  
+  const payload = { 
+    instances: [{ prompt: prompt }], 
+    parameters: { sampleCount: 1 } 
+  };
+  
+  const response = await fetchWithExponentialBackoff(
+    `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`, 
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+  );
+  
+  const result = await response.json();
+  if (!result.predictions || !result.predictions[0] || !result.predictions[0].bytesBase64Encoded) {
+    throw new Error("이미지 융합 API 응답 오류");
+  }
+  return `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
+}
+
+async function generateVerseAudio(verse) {
+  const payload = {
+    contents: [{ parts: [{ text: verse }] }],
+    generationConfig: {
+      responseModalities: ["AUDIO"],
+      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } } }
+    },
+    model: "gemini-2.5-flash-preview-tts"
+  };
+  
+  const response = await fetchWithExponentialBackoff(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`, 
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+  );
+  
+  const result = await response.json();
+  try {
+    const part = result.candidates[0].content.parts[0];
+    const match = part.inlineData.mimeType.match(/rate=(\d+)/);
+    const sampleRate = match ? parseInt(match[1], 10) : 24000;
+    const pcm16 = new Int16Array(base64ToArrayBuffer(part.inlineData.data));
+    return URL.createObjectURL(pcmToWav(pcm16, sampleRate));
+  } catch (e) {
+    throw new Error("오디오 합성 API 응답 오류");
+  }
+}
+
+// ==========================================
+// 5. 로딩 주마등(Flashback) 컴포넌트
+// ==========================================
+const LoadingFlashback = ({ loadingStep }) => {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % FLASHBACK_IMAGES.length);
+    }, 600);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#050505] z-50 p-6">
+      <div className="relative w-48 h-64 rounded-[24px] overflow-hidden shadow-[0_0_50px_rgba(223,186,115,0.18)] mb-10 border border-[#DFBA73]/30 bg-gradient-to-tr from-[#1a1510] to-[#050505]">
+        {/* ⭐️ [이미지 깨짐 버그 완전 복구] opacity 강제 초기화 코드를 지우고 안정적인 원본 렌더링 유지 */}
+        {FLASHBACK_IMAGES.map((src, i) => (
+          <img
+            key={i}
+            src={src}
+            alt="" 
+            className={`absolute inset-0 w-full h-full object-cover transition-all duration-1000 ease-in-out ${i === activeIndex ? 'opacity-100 scale-105' : 'opacity-0 scale-100'}`}
+          />
+        ))}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-[#050505]/40 pointer-events-none" />
+      </div>
+
+      <div className="flex flex-col items-center gap-3 bg-black/60 border border-white/10 px-6 py-4 rounded-2xl backdrop-blur-md max-w-[90%] text-center">
+        <div className="w-5 h-5 border-[2px] border-[#DFBA73]/40 border-t-[#DFBA73] rounded-full animate-spin"></div>
+        <p className="text-[#DFBA73] font-myeongjo text-[13px] tracking-wider font-bold animate-pulse">{loadingStep}</p>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// 6. 개별 피드 카드 컴포넌트 (Canvas 순정 캡처공유 탑재)
+// ==========================================
+const FeedCard = ({ 
+  card, 
+  isPreview = false, 
+  onShowToast, 
+  onToggleSave, 
+  isSaved, 
+  onNavigateProfile, 
+  likedCardsState, 
+  onToggleLikeGlobal 
+}) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMeditationOpen, setIsMeditationOpen] = useState(false);
+  const [isThoughtOpen, setIsThoughtOpen] = useState(false);
+  const [meditationText, setMeditationText] = useState(card.meditation || "");
+  const [isLoadingMeditation, setIsLoadingMeditation] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+
+  const audioRef = useRef(null);
+  const cardRef = useRef(null);
+  const playCount = useRef(0);
+
+  const isLiked = likedCardsState[card.id] || false;
+  const likesCount = card.likes + (isLiked ? 1 : 0);
+
+  const handleLike = (e) => {
+    e.stopPropagation();
+    onToggleLikeGlobal(card.id);
+  };
+
+  const handleCopy = (e) => {
+    e.stopPropagation();
+    const copyString = `[말씀의 빛]\n\n${card.text}\n\n* 오늘의 묵상 해설:\n${meditationText || "묵상 가이드를 생성 중입니다."}\n\n${card.userThought ? `* 나의 고백:\n"${card.userThought}"` : ""}`;
+    const success = copyTextFallback(copyString);
+    if (success) {
+      onShowToast("성구와 고백, 묵상이 클립보드에 안전하게 복사되었습니다.", "success");
+    } else {
+      onShowToast("텍스트 복사에 일시적 오류가 생겼습니다.", "error");
+    }
+  };
+
+  const handleDeviceShare = async (e) => {
+    e.stopPropagation();
+    onShowToast("공유 카드를 준비하는 중입니다...", "info");
+
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1080;
+      canvas.height = 1920;
+      const ctx = canvas.getContext('2d');
+
+      const img = new Image();
+      img.crossOrigin = "anonymous"; 
+      img.src = card.image;
+
+      await new Promise((resolve) => {
+        img.onload = resolve;
+        img.onerror = () => {
+          ctx.fillStyle = '#0a0806';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          resolve();
+        };
+      });
+
+      if (img.complete && img.naturalWidth > 0) {
+        const imgAspect = img.naturalWidth / img.naturalHeight;
+        const canvasAspect = canvas.width / canvas.height;
+        let drawWidth, drawHeight, offsetX = 0, offsetY = 0;
+
+        if (imgAspect > canvasAspect) {
+          drawHeight = canvas.height;
+          drawWidth = canvas.height * imgAspect;
+          offsetX = (canvas.width - drawWidth) / 2;
+        } else {
+          drawWidth = canvas.width;
+          drawHeight = canvas.width / imgAspect;
+          offsetY = (canvas.height - drawHeight) / 2;
+        }
+
+        ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+      }
+
+      const gradTop = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.4);
+      gradTop.addColorStop(0, 'rgba(0, 0, 0, 0.88)');
+      gradTop.addColorStop(1, 'rgba(0, 0, 0, 0.25)');
+      ctx.fillStyle = gradTop;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const gradBottom = ctx.createLinearGradient(0, canvas.height * 0.45, 0, canvas.height);
+      gradBottom.addColorStop(0, 'rgba(0, 0, 0, 0.2)');
+      gradBottom.addColorStop(1, 'rgba(0, 0, 0, 0.95)');
+      ctx.fillStyle = gradBottom;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = 'rgba(223, 186, 115, 0.25)';
+      ctx.lineWidth = 14;
+      ctx.strokeRect(50, 50, canvas.width - 100, canvas.height - 100);
+
+      ctx.fillStyle = '#DFBA73';
+      ctx.font = "bold 32px 'Nanum Myeongjo', serif, sans-serif";
+      ctx.textAlign = 'center';
+      ctx.fillText("LIGHT OF WORD", canvas.width / 2, 160);
+
+      ctx.strokeStyle = 'rgba(223, 186, 115, 0.35)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(canvas.width / 2 - 120, 195);
+      ctx.lineTo(canvas.width / 2 + 120, 195);
+      ctx.stroke();
+
+      ctx.fillStyle = '#FFFDF9';
+      ctx.font = "bold 44px 'Nanum Myeongjo', serif, sans-serif";
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.98)';
+      ctx.shadowBlur = 30;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 4;
+
+      const fullText = card.text;
+      const chars = fullText.split('');
+      let lines = [];
+      let currentLine = '';
+      const maxLineWidth = canvas.width - 240; 
+
+      for (let i = 0; i < chars.length; i++) {
+        let testLine = currentLine + chars[i];
+        let metrics = ctx.measureText(testLine);
+        if (metrics.width > maxLineWidth && i > 0) {
+          lines.push(currentLine);
+          currentLine = chars[i];
+        } else {
+          currentLine = testLine;
+        }
+      }
+      lines.push(currentLine);
+
+      const lineHeight = 80;
+      const startY = (canvas.height / 2) - ((lines.length - 1) * lineHeight / 2) + 40;
+
+      lines.forEach((line, index) => {
+        ctx.fillText(line.trim(), canvas.width / 2, startY + (index * lineHeight));
+      });
+
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+      ctx.font = "28px sans-serif";
+      ctx.fillText("말씀의 빛 | 매일 성서 묵상 하우스", canvas.width / 2, canvas.height - 150);
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          throw new Error("Blob creation failed");
+        }
+        const file = new File([blob], 'light_of_word.png', { type: 'image/png' });
+        const shareData = {
+          title: '말씀의 빛',
+          text: `[말씀의 빛]\n\n${card.text}\n\n* 오늘의 묵상 해설:\n${meditationText || "묵상 가이드를 준비 중입니다."}`,
+          files: [file]
+        };
+
+        if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+          try {
+            await navigator.share(shareData);
+            onShowToast("말씀 카드 이미지가 대화방으로 은혜롭게 전송되었습니다.", "success");
+          } catch (err) {
+            if (err.name !== 'AbortError') handleCopy(e); 
+          }
+        } else {
+          handleCopy(e); 
+        }
+      }, 'image/png');
+
+    } catch (err) {
+      console.error(err);
+      onShowToast("클린 공유 카드를 생성하지 못해 본문 텍스트를 전송합니다.", "info");
+      handleCopy(e);
+    }
+  };
+
+  const handleOpenMeditation = (e) => {
+    e.stopPropagation();
+    setIsMeditationOpen(true);
+    if (!meditationText) {
+      setIsLoadingMeditation(true);
+      generateMeditation(card.text, card.userThought)
+        .then((text) => {
+          setMeditationText(text);
+          card.meditation = text; 
+        })
+        .catch(() => {
+          setMeditationText("일시적 네트워크 지연입니다. 다시 열어주시면 은혜를 길어오겠습니다.");
+        })
+        .finally(() => setIsLoadingMeditation(false));
+    }
+  };
+
+  const handleAudioEnded = () => {
+    if (playCount.current < 1) {
+      playCount.current += 1;
+      if (audioRef.current) {
+        audioRef.current.play().catch(() => {});
+      }
+    } else {
+      setIsPlaying(false);
+      playCount.current = 0; 
+      onShowToast("성경 낭독이 2회 반복 완료되어 경건히 정지되었습니다.", "info");
+    }
+  };
+
+  useEffect(() => {
+    if (isPreview) {
+      if (audioRef.current && card.audio) {
+        playCount.current = 0;
+        audioRef.current.play()
+          .then(() => setIsPlaying(true))
+          .catch(() => setIsPlaying(false));
+      }
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            playCount.current = 0;
+            if (audioRef.current && card.audio) {
+              audioRef.current.play()
+                .then(() => setIsPlaying(true))
+                .catch(() => setIsPlaying(false));
+            } else {
+              setIsPlaying(true);
+            }
+          } else {
+            setIsPlaying(false);
+            if (audioRef.current) audioRef.current.pause();
+          }
+        });
+      },
+      { threshold: 0.6 }
+    );
+
+    if (cardRef.current) observer.observe(cardRef.current);
+    return () => {
+      if (cardRef.current) observer.unobserve(cardRef.current);
+    };
+  }, [isPreview, card.audio]);
+
+  const togglePlay = () => {
+    if (isMeditationOpen || isThoughtOpen) {
+      setIsMeditationOpen(false);
+      setIsThoughtOpen(false);
+      return;
+    }
+    if (isPlaying) {
+      audioRef.current?.pause();
+      setIsPlaying(false);
+    } else {
+      if (audioRef.current && card.audio) {
+        audioRef.current.play().catch(() => {});
+      }
+      setIsPlaying(true);
+    }
+  };
+
+  const toggleMute = (e) => {
+    e.stopPropagation();
+    if (audioRef.current) {
+      audioRef.current.muted = !isMuted;
+      setIsMuted(!isMuted);
+      onShowToast(!isMuted ? "음소거 되었습니다." : "낭독 성음이 활성화되었습니다.", "info");
+    }
+  };
+
+  const handleProfileClick = (e) => {
+    e.stopPropagation();
+    if (onNavigateProfile) {
+      onNavigateProfile(card.author);
+    }
+  };
+
+  const getResponsiveFontSize = (text) => {
+    if (!text) return 'text-base';
+    const len = text.length;
+    if (len < 35) return 'text-[22px] sm:text-2xl leading-[1.65]';
+    if (len < 70) return 'text-[18px] sm:text-xl leading-[1.7]';
+    return 'text-[15px] sm:text-[17px] leading-[1.8]';
+  };
+
+  return (
+    <div 
+      ref={cardRef} 
+      className="relative w-full h-full snap-start bg-[#030303] overflow-hidden cursor-pointer select-none" 
+      onClick={togglePlay}
+    >
+      <div 
+        className="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-out" 
+        style={{ backgroundImage: `url(${card.image})`, opacity: 0.52 }} 
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-black/85" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/60 pointer-events-none" />
+
+      {/* 중앙 텍스트 영역 (2단계 성경 말씀) */}
+      <div 
+        className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none px-6 sm:px-10" 
+        style={{ 
+          WebkitMaskImage: 'linear-gradient(to bottom, transparent 8%, black 22%, black 78%, transparent 92%)', 
+          maskImage: 'linear-gradient(to bottom, transparent 8%, black 22%, black 78%, transparent 92%)' 
+        }}
+      >
+        <div 
+          className="w-full flex flex-col items-center text-center py-20"
+          style={{ 
+            animation: 'scrollTextUpCenter 14s ease-out forwards', 
+            animationPlayState: isPlaying ? 'running' : 'paused' 
+          }}
+        >
+          <p 
+            className={`text-[#FFFDF9] font-myeongjo font-bold tracking-[0.04em] whitespace-pre-wrap break-keep ${getResponsiveFontSize(card.text)}`}
+            style={{ textShadow: '0px 4px 20px rgba(0,0,0,0.95), 0px 1px 3px rgba(0,0,0,0.8)' }}
+          >
+            {card.text}
+          </p>
+        </div>
+      </div>
+
+      {card.audio && (
+        <audio 
+          ref={audioRef} 
+          src={card.audio} 
+          onEnded={handleAudioEnded} 
+        />
+      )}
+
+      {/* 우상단 음소거 제어 */}
+      {card.audio && !isPreview && (
+        <button 
+          onClick={toggleMute}
+          className="absolute top-16 right-4 z-30 p-2.5 rounded-full bg-black/40 hover:bg-black/60 border border-white/10 text-white/80 active:scale-95 transition-all"
+        >
+          {isMuted ? <Icons.VolumeX /> : <Icons.Volume />}
+        </button>
+      )}
+
+      {/* 피드 하단 메타 정보 및 액션 패널 */}
+      {!isPreview && (
+        <div className="absolute bottom-[80px] left-4 right-4 flex items-end justify-between z-30 pointer-events-none">
+          
+          <div className="flex flex-col gap-3.5 max-w-[70%]">
+            
+            {/* 프로필 바로가기 연동 영역 */}
+            <div 
+              onClick={handleProfileClick}
+              className="flex items-center gap-2.5 pointer-events-auto cursor-pointer group"
+              title="성서 서재 방문하기"
+            >
+              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#DFBA73] to-[#A37B3F] flex items-center justify-center text-black text-[12px] font-bold border border-[#DFBA73]/30 shadow-lg group-hover:scale-105 transition-transform">
+                {card.author?.charAt(0).toUpperCase() || 'U'}
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[#FDFBF7] text-[13.5px] font-semibold drop-shadow-md tracking-wider group-hover:text-[#DFBA73] transition-colors">@{card.author}</span>
+                <span className="text-[9px] text-[#DFBA73] opacity-80 tracking-tighter">서재 방문하기 &rarr;</span>
+              </div>
+            </div>
+
+            {/* 3단계 개인 고백 */}
+            {card.userThought && (
+              <div 
+                onClick={(e) => { e.stopPropagation(); setIsThoughtOpen(true); }}
+                className="pointer-events-auto bg-white/10 hover:bg-white/15 backdrop-blur-md border border-[#DFBA73]/20 px-3.5 py-2.5 rounded-full shadow-lg flex items-center gap-2 cursor-pointer transition-all active:scale-95 animate-fade-in-up"
+              >
+                <span className="text-[#DFBA73]"><Icons.Feather /></span>
+                <span className="text-[11.5px] text-stone-200 font-medium tracking-wide">오늘의 고백 읽기 &bull;&bull;&bull;</span>
+              </div>
+            )}
+          </div>
+
+          {/* 사이드 액션 패널 */}
+          <div className="flex flex-col items-center gap-4.5 pointer-events-auto">
+            
+            <button 
+              onClick={handleOpenMeditation}
+              className="flex flex-col items-center gap-1 text-white/90 hover:text-[#DFBA73] active:scale-90 transition-all"
+            >
+              <div className="w-11 h-11 rounded-full bg-black/40 border border-white/10 backdrop-blur-md flex items-center justify-center shadow-lg hover:border-[#DFBA73]/40">
+                <Icons.Sparkles />
+              </div>
+              <span className="text-[10px] text-white/80 font-medium tracking-tight">AI 묵상</span>
+            </button>
+
+            <button 
+              onClick={handleLike} 
+              className="flex flex-col items-center gap-1 text-white/90 hover:text-[#DFBA73] active:scale-90 transition-all"
+            >
+              <div className="w-11 h-11 rounded-full bg-black/40 border border-white/10 backdrop-blur-md flex items-center justify-center shadow-lg hover:border-[#DFBA73]/40">
+                <Icons.Heart filled={isLiked} />
+              </div>
+              <span className="text-[10px] text-white/80 font-medium tracking-tight">{likesCount}</span>
+            </button>
+
+            <button 
+              onClick={(e) => { e.stopPropagation(); onToggleSave(card); }}
+              className="flex flex-col items-center gap-1 text-white/90 hover:text-[#DFBA73] active:scale-90 transition-all"
+            >
+              <div className="w-11 h-11 rounded-full bg-black/40 border border-white/10 backdrop-blur-md flex items-center justify-center shadow-lg hover:border-[#DFBA73]/40">
+                <Icons.Bookmark filled={isSaved} />
+              </div>
+              <span className="text-[10px] text-white/80 font-medium tracking-tight">보관</span>
+            </button>
+
+            <button 
+              onClick={handleDeviceShare}
+              className="flex flex-col items-center gap-1 text-white/90 hover:text-[#DFBA73] active:scale-90 transition-all"
+            >
+              <div className="w-11 h-11 rounded-full bg-black/40 border border-white/10 backdrop-blur-md flex items-center justify-center shadow-lg hover:border-[#DFBA73]/40">
+                <Icons.Share />
+              </div>
+              <span className="text-[10px] text-white/80 font-medium tracking-tight">공유</span>
+            </button>
+            
+            <div className="relative mt-2 w-[42px] h-[42px]">
+              {isPlaying && (
+                <div className="absolute inset-0 rounded-full border border-[#DFBA73]/60 animate-ping opacity-75" />
+              )}
+              <div className={`w-full h-full rounded-full border-2 border-[#DFBA73]/40 bg-[#121212] overflow-hidden flex items-center justify-center shadow-[0_0_15px_rgba(223,186,115,0.3)] ${isPlaying ? 'animate-[spin_6s_linear_infinite]' : ''}`}>
+                <img src={card.image} alt="album" className="w-full h-full object-cover opacity-80" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 오늘의 고백 팝업 */}
+      <div 
+        className={`absolute bottom-[80px] left-0 right-0 bg-[#120f0c]/98 backdrop-blur-3xl border-t border-[#DFBA73]/30 rounded-t-[32px] transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) z-50 p-7 pb-8 flex flex-col gap-4 shadow-[0_-15px_50px_rgba(0,0,0,0.9)] ${isThoughtOpen ? 'translate-y-0 opacity-100' : 'translate-y-[130%] opacity-0'}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button 
+          onClick={() => setIsThoughtOpen(false)} 
+          className="absolute top-5 right-5 text-[#DFBA73]/60 hover:text-white transition-colors p-1"
+        >
+          <Icons.Close />
+        </button>
+        <div className="flex items-center gap-2.5 mb-1">
+          <div className="p-2 bg-[#DFBA73]/10 rounded-full text-[#DFBA73] border border-[#DFBA73]/20">
+            <Icons.Feather />
+          </div>
+          <div>
+            <h3 className="text-[#DFBA73] font-myeongjo font-bold text-lg tracking-wide">성도의 깊은 고백</h3>
+            <p className="text-white/40 text-[10px] tracking-tight">주님 앞에 마음 모아 적은 깊은 심령의 실상입니다.</p>
+          </div>
+        </div>
+        
+        <div className="text-[#F4EFE6] text-[14px] leading-[1.8] font-myeongjo whitespace-pre-wrap max-h-[30vh] overflow-y-auto hide-scrollbar border-b border-white/5 pb-4">
+          <p className="opacity-90 tracking-wide leading-relaxed pl-1">
+            "{card.userThought}"
+          </p>
+        </div>
+        <div className="flex justify-end gap-2 mt-1">
+          <button 
+            onClick={() => setIsThoughtOpen(false)}
+            className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#DFBA73] to-[#C5A059] text-black font-semibold text-[12px] transition-colors active:scale-95"
+          >
+            마음에 새기기
+          </button>
+        </div>
+      </div>
+
+      {/* AI 묵상 바텀 시트 */}
+      <div 
+        className={`absolute bottom-[80px] left-0 right-0 bg-[#0c0a08]/98 backdrop-blur-2xl border-t border-[#DFBA73]/30 rounded-t-[32px] transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) z-50 p-7 pb-8 flex flex-col gap-4 shadow-[0_-15px_50px_rgba(0,0,0,0.85)] ${isMeditationOpen ? 'translate-y-0 opacity-100' : 'translate-y-[130%] opacity-0'}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button 
+          onClick={() => setIsMeditationOpen(false)} 
+          className="absolute top-5 right-5 text-[#DFBA73]/60 hover:text-white transition-colors p-1"
+        >
+          <Icons.Close />
+        </button>
+        <div className="flex items-center gap-2.5 mb-1">
+          <div className="p-2 bg-[#DFBA73]/10 rounded-full text-[#DFBA73] border border-[#DFBA73]/20">
+            <Icons.Sparkles />
+          </div>
+          <div>
+            <h3 className="text-[#DFBA73] font-myeongjo font-bold text-lg tracking-wide">AI 하늘빛 깊은 묵상</h3>
+            <p className="text-white/40 text-[10px] tracking-tight">성경과 성도의 마음을 주님이 조화롭게 빚어내신 묵상입니다.</p>
+          </div>
+        </div>
+        
+        <div className="text-[#F4EFE6] text-[13.5px] leading-[1.8] font-myeongjo whitespace-pre-wrap max-h-[30vh] overflow-y-auto hide-scrollbar pr-1 border-b border-white/5 pb-4">
+          {isLoadingMeditation ? (
+            <div className="flex flex-col items-center justify-center py-10 gap-3">
+              <div className="w-6 h-6 border-[2px] border-[#DFBA73]/20 border-t-[#DFBA73] rounded-full animate-spin"></div>
+              <span className="text-white/50 text-[11px] animate-pulse font-sans tracking-wider">하늘빛 고백을 묵상으로 영글어가고 있습니다...</span>
+            </div>
+          ) : (
+            <p className="opacity-90 tracking-wide font-normal">{meditationText}</p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <button 
+              onClick={handleCopy}
+              className="flex-1 py-3.5 rounded-xl bg-[#DFBA73]/10 hover:bg-[#DFBA73]/20 border border-[#DFBA73]/30 text-[#DFBA73] text-[12px] font-medium transition-colors active:scale-95"
+            >
+              텍스트 복사
+            </button>
+            <button 
+              onClick={handleDeviceShare}
+              className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-[#DFBA73] to-[#C5A059] text-black font-extrabold text-[12px] flex items-center justify-center gap-1.5 shadow-[0_5px_15px_rgba(223,186,115,0.2)] active:scale-95 transition-transform"
+            >
+              <Icons.Share /> 기기로 공유하기
+            </button>
+          </div>
+          <button 
+            onClick={() => setIsMeditationOpen(false)}
+            className="w-full py-3.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 text-[12px] transition-colors"
+          >
+            닫기
+          </button>
+        </div>
+      </div>
+
+      {!isPlaying && (
+        <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+          <div className="w-16 h-16 bg-black/40 rounded-full flex items-center justify-center backdrop-blur-md text-white/90 border border-white/20 shadow-2xl scale-95 animate-pulse">
+            <div className="ml-1"><Icons.Play /></div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ==========================================
+// 7. 메인 애플리케이션 컴포넌트
+// ==========================================
+export default function App() {
+  const [view, setView] = useState('feed'); 
+  const [feedCards, setFeedCards] = useState(MOCK_FEED_DATA);
+  const [selectedCard, setSelectedCard] = useState(null);
+  
+  const [activeProfileUser, setActiveProfileUser] = useState("은혜나눔인");
+  const [savedCards, setSavedCards] = useState([]);
+  const [likedCardsState, setLikedCardsState] = useState({});
+
+  const [verseRefInput, setVerseRefInput] = useState('');
+  const [verseText, setVerseText] = useState('');
+  
+  const [includeThought, setIncludeThought] = useState(false);
+  const [userThought, setUserThought] = useState(''); 
+  
+  const [isSearching, setIsSearching] = useState(false);
+  const [loadingStep, setLoadingStep] = useState('');
+  
+  const [currentResult, setCurrentResult] = useState({ image: null, audio: null, text: '', meditation: '', userThought: '' });
+
+  const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
+
+  const showToast = (message, type = 'info') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => {
+      setToast(prev => ({ ...prev, show: false }));
+    }, 2800);
+  };
+
+  const handleToggleLikeGlobal = (cardId) => {
+    setLikedCardsState(prev => {
+      const isCurrentlyLiked = prev[cardId] || false;
+      const nextLiked = !isCurrentlyLiked;
+      
+      if (nextLiked) {
+        showToast("은혜로운 말씀에 공감했습니다.", "success");
+      } else {
+        showToast("말씀 공감을 취소했습니다.", "info");
+      }
+      return { ...prev, [cardId]: nextLiked };
+    });
+  };
+
+  const handleToggleSave = (card) => {
+    const isAlreadySaved = savedCards.some(c => c.text === card.text);
+    if (isAlreadySaved) {
+      setSavedCards(prev => prev.filter(c => c.text !== card.text));
+      showToast("보관함에서 말씀을 삭제했습니다.", "info");
+    } else {
+      setSavedCards(prev => [...prev, card]);
+      showToast("내 묵상 서재에 저장해두었습니다.", "success");
+    }
+  };
+
+  const handleNavigateProfile = (username) => {
+    setActiveProfileUser(username);
+    setView('profile');
+    showToast(`@${username} 님의 성서서재로 이동합니다.`, "info");
+  };
+
+  const handleSearchVerse = async () => {
+    if (!verseRefInput.trim()) {
+      showToast("장절 주소를 입력하세요 (예: 요한복음 3:16)", "info");
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const text = await fetchBibleTextFromAI(verseRefInput);
+      setVerseText(text);
+      showToast("성스러운 말씀을 성경에서 올바르게 수령했습니다.", "success");
+    } catch (e) {
+      showToast("일시적 서버 지연이 있습니다. 직접 수동으로 입력을 완료해 주세요.", "info");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // ⭐️ [에러 완벽 차단] AI 생성 과정 중 치명적 오류 발생 시 무한 펜딩 방지
+  const handleCreate = async () => {
+    if (!verseText.trim()) {
+      showToast("마음에 품을 말씀 구절을 기입해 주세요.", "info");
+      return;
+    }
+    setView('loading');
+    try {
+      setLoadingStep('성경 구절의 은혜로운 영적 맥락과 상징을 자동 분석하는 중...');
+      const visualAnalysis = await analyzeVerseForVisuals(verseText);
+
+      setLoadingStep('하늘의 빛과 지혜를 빌려 묵상 해설을 정조율하는 중...');
+      const actualThought = includeThought ? userThought : "";
+      const meditationVal = await generateMeditation(verseText, actualThought);
+
+      setLoadingStep('분석된 은혜의 맥락을 바탕으로 성화를 거룩하게 조각하는 중...');
+      const imageUri = await generateVerseImage(
+        visualAnalysis.promptSuffix || "holy lighting", 
+        visualAnalysis.textConcept || "GRACE"
+      );
+
+      setLoadingStep('경건하고 거룩한 낭독 성음을 융합하는 중...');
+      const audioUri = await generateVerseAudio(verseText);
+
+      setCurrentResult({ 
+        id: Date.now(), 
+        text: verseText, 
+        image: imageUri, 
+        audio: audioUri, 
+        meditation: meditationVal,
+        userThought: actualThought,
+        likes: 0
+      });
+      setView('result');
+      showToast("성구의 신학적 분위기가 반영된 묵상 카드가 융합되었습니다.", "success");
+    } catch (error) {
+      console.error("생성 중단 에러:", error);
+      // 무한 버퍼링 차단: 에러 발생 시 즉각 토스트 경고 후 창작 뷰로 복귀
+      showToast('API 서버 지연 또는 보안 차단이 발생했습니다. 다시 시도해주세요.', 'error');
+      setView('create');
+    }
+  };
+
+  const handlePublish = () => {
+    const newCard = {
+      id: currentResult.id || Date.now(),
+      text: currentResult.text,
+      image: currentResult.image,
+      audio: currentResult.audio,
+      meditation: currentResult.meditation,
+      userThought: currentResult.userThought,
+      author: "은혜나눔인",
+      likes: 0
+    };
+    setFeedCards(prev => [newCard, ...prev]);
+    setSavedCards(prev => [newCard, ...prev]);
+    
+    setVerseRefInput('');
+    setVerseText('');
+    setUserThought('');
+    setIncludeThought(false);
+    
+    setActiveProfileUser("은혜나눔인");
+    setView('profile');
+    showToast("생성된 말씀을 성전에 헌정하여 교우들과 나눕니다.", "success");
+  };
+
+  const getGreetingMessage = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return "주님의 신비로운 아침 광채 아래서 하루를 묵상해보세요";
+    if (hour >= 12 && hour < 18) return "분주한 일상을 내려놓고 말씀이 머무는 성소로 나아오세요";
+    return "고요하고 평화로운 밤, 구주의 보혈 같은 따뜻함 속에 깃들 시간입니다";
+  };
+
+  const getVisibleCardsForActiveProfile = () => {
+    if (activeProfileUser === "은혜나눔인") {
+      return savedCards;
+    } else {
+      return feedCards.filter(c => c.author === activeProfileUser);
+    }
+  };
+
+  const activeMeta = USER_PROFILES_META[activeProfileUser] || { name: activeProfileUser, desc: "주님과 조용히 동행하는 성도", stars: "0" };
+
+  return (
+    <div className="flex justify-center items-center min-h-screen bg-[#020202] text-[#F9F7F1] font-sans selection:bg-[#DFBA73]/30">
+      
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap');
+        .font-myeongjo { font-family: 'Nanum Myeongjo', serif; }
+        
+        @keyframes scrollTextUpCenter {
+          0% { transform: translateY(40%); opacity: 0; }
+          15% { opacity: 1; }
+          85% { opacity: 1; }
+          100% { transform: translateY(-30%); opacity: 0.95; }
+        }
+        
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up {
+          animation: fadeInUp 0.5s ease-out forwards;
+        }
+
+        @keyframes pulseGoldGlow {
+          0% { box-shadow: 0 0 0 0 rgba(223, 186, 115, 0.4); }
+          70% { box-shadow: 0 0 0 12px rgba(223, 186, 115, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(223, 186, 115, 0); }
+        }
+        .pulse-gold {
+          animation: pulseGoldGlow 2.5s infinite;
+        }
+      `}</style>
+
+      {/* 스마트폰 전용 뷰 포트 시뮬레이션 */}
+      <div className="relative w-full max-w-[430px] h-[100dvh] bg-[#050505] flex flex-col shadow-[0_25px_60px_rgba(0,0,0,0.9)] overflow-hidden sm:rounded-[48px] sm:h-[860px] border border-white/10 sm:my-4">
+        
+        {/* 성전 상단 프리미엄 헤더 라인 */}
+        <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-[#050505] via-[#050505]/95 to-transparent z-[50] pointer-events-none flex flex-col justify-end pb-1.5 px-6">
+          <div className="flex items-center justify-between w-full">
+            <div className="h-[1px] bg-gradient-to-r from-transparent via-[#DFBA73]/40 to-transparent flex-1 mr-4"></div>
+            <span 
+              className="text-[12.5px] font-myeongjo font-extrabold tracking-[0.25em] text-[#DFBA73]"
+              style={{ textShadow: '0 0 10px rgba(223,186,115,0.4)' }}
+            >
+              LIGHT OF WORD
+            </span>
+            <div className="h-[1px] bg-gradient-to-r from-transparent via-[#DFBA73]/40 to-transparent flex-1 ml-4"></div>
+          </div>
+          <div className="w-full text-center mt-1">
+            <span className="text-[7.5px] font-sans text-white/30 tracking-[0.3em] uppercase">Visual Devotional Sanctuary</span>
+          </div>
+        </div>
+
+        {/* 1. 피드 뷰 영역 */}
+        {view === 'feed' && (
+          <div className="flex-1 overflow-y-auto snap-y snap-mandatory hide-scrollbar bg-black relative">
+            {feedCards.map((card) => (
+              <FeedCard 
+                key={card.id} 
+                card={card} 
+                onShowToast={showToast}
+                onToggleSave={handleToggleSave}
+                isSaved={savedCards.some(c => c.text === card.text)}
+                onNavigateProfile={handleNavigateProfile}
+                likedCardsState={likedCardsState}
+                onToggleLikeGlobal={handleToggleLikeGlobal}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* 2. 묵상 생성 및 입력 뷰 영역 */}
+        {view === 'create' && (
+          <div className="flex-1 flex flex-col bg-[#FDFBF7] text-[#2C241B] p-6 pt-16 z-10 pb-28 overflow-y-auto hide-scrollbar">
+            <div className="flex justify-between items-start mb-5 w-full pt-4">
+              <div className="flex-1">
+                <span className="text-[10px] text-[#A37B3F] font-semibold tracking-[0.2em] uppercase">Visual Devotion</span>
+                <h1 className="text-2xl font-myeongjo font-extrabold text-[#1A1510] tracking-tight mt-0.5">성전 성화 수록</h1>
+                <p className="text-[#8B7D6B] text-[11.5px] mt-1 font-sans">{getGreetingMessage()}</p>
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <label className="text-[11.5px] text-[#A37B3F] font-bold tracking-wider mb-1 block">1단계: 성서 말씀 탐색</label>
+              <span className="text-[10px] text-stone-500/90 block mb-1.5 leading-relaxed">
+                한 구절만 찾거나(예: <b>요한복음 3:16</b>), 여러 구절을 연속해서 한 번에 찾을 수도 있습니다 (예: <b>창세기 1:6~9</b>).
+              </span>
+              <div className="flex space-x-2 w-full">
+                <input 
+                  type="text"
+                  value={verseRefInput}
+                  onChange={(e) => setVerseRefInput(e.target.value)}
+                  placeholder="예: 요한복음 3:16 또는 창세기 1:6~9"
+                  className="min-w-0 flex-1 bg-[#F4EFE6] border-b border-[#D8CFC0] rounded-t-xl py-2.5 px-4 focus:outline-none focus:border-[#A37B3F] font-myeongjo placeholder:text-[#C5B9AA] text-[14px] transition-colors"
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearchVerse()}
+                />
+                <button 
+                  type="button"
+                  onClick={handleSearchVerse} 
+                  disabled={isSearching} 
+                  className="shrink-0 bg-[#3A3025] hover:bg-[#201A14] text-[#F9F7F1] px-4 rounded-xl font-sans font-medium text-[13px] whitespace-nowrap transition-transform active:scale-95 disabled:opacity-50"
+                >
+                  {isSearching ? '수렴중...' : '탐색'}
+                </button>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="text-[11px] text-[#A37B3F] font-bold tracking-wider mb-1 block">2단계: 마음에 새긴 구절 가다듬기 (성경말씀)</label>
+              <textarea 
+                value={verseText}
+                onChange={(e) => setVerseText(e.target.value)}
+                placeholder="위의 탐색 단추를 이용해 채워 넣거나, 가슴 속에 담아둔 말씀을 이곳에 직접 서술해 주세요..."
+                className="w-full min-h-[90px] bg-white/80 border border-[#E8E1D5] rounded-2xl p-4 focus:outline-none focus:ring-1 focus:ring-[#A37B3F] resize-none font-myeongjo text-[14px] leading-[1.8] tracking-[0.02em] shadow-[inset_0_2px_10px_rgba(0,0,0,0.03)]"
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="text-[11px] text-[#A37B3F] font-bold tracking-wider mb-2 block">3단계: 나의 오늘 고백 & 간구 (선택)</label>
+              
+              <div className="flex items-center justify-between bg-[#F4EFE6] px-4 py-3 rounded-2xl border border-[#D8CFC0] mb-2">
+                <div className="flex flex-col">
+                  <span className="text-[13px] font-bold text-[#1A1510]">오늘의 고백 추가하기</span>
+                  <span className="text-[10px] text-stone-500">고백 활성화 시 묵상과 성화에 오늘 마음이 융합됩니다.</span>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => setIncludeThought(!includeThought)}
+                  className={`w-11 h-6 rounded-full transition-colors relative focus:outline-none ${includeThought ? 'bg-[#A37B3F]' : 'bg-stone-300'}`}
+                >
+                  <span className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${includeThought ? 'translate-x-5' : ''}`} />
+                </button>
+              </div>
+
+              {includeThought && (
+                <textarea 
+                  value={userThought}
+                  onChange={(e) => setUserThought(e.target.value)}
+                  placeholder="오늘 내가 마주한 상황, 주님 앞에 뉘우치는 고백, 혹은 간절한 기도의 실상을 적어주세요."
+                  className="w-full min-h-[90px] bg-white/85 border border-[#E8E1D5] rounded-2xl p-4 focus:outline-none focus:ring-1 focus:ring-[#A37B3F] resize-none font-sans text-[13px] leading-[1.6] placeholder:text-stone-400 shadow-sm animate-fade-in-up"
+                />
+              )}
+            </div>
+
+            <button 
+              onClick={handleCreate}
+              disabled={!verseText.trim()}
+              className="w-full py-4 rounded-xl bg-[#1e1510] hover:bg-[#3A3025] text-[#DFBA73] font-bold text-[14px] tracking-widest disabled:opacity-30 shadow-lg active:scale-[0.98] transition-all mt-2 mb-6 uppercase"
+            >
+              성화 말씀 카드 창조하기
+            </button>
+          </div>
+        )}
+
+        {/* 3. 영적 주마등 인트로 로딩 */}
+        {view === 'loading' && (
+          <LoadingFlashback loadingStep={loadingStep} />
+        )}
+
+        {/* 4. 생성 결과 프리뷰 */}
+        {view === 'result' && (
+          <div className="absolute inset-0 bg-black z-40">
+            <div className="absolute inset-0 pb-20">
+               <FeedCard 
+                card={{ ...currentResult, author: "은혜나눔인", likes: 0 }} 
+                isPreview={true} 
+                onShowToast={showToast} 
+                likedCardsState={likedCardsState}
+                onToggleLikeGlobal={handleToggleLikeGlobal}
+               />
+            </div>
+            {/* 프리뷰 위 정렬 버튼들 */}
+            <div className="absolute bottom-24 left-0 right-0 flex flex-col items-center justify-center gap-3 z-50 px-6">
+              <button 
+                onClick={handlePublish}
+                className="w-full py-4 rounded-xl bg-gradient-to-r from-[#DFBA73] to-[#C5A059] text-black font-extrabold text-[13px] flex items-center justify-center gap-2.5 shadow-[0_10px_25px_rgba(223,186,115,0.3)] hover:scale-105 active:scale-95 transition-transform tracking-wider"
+              >
+                <Icons.Check /> 성전에 은혜 올리기
+              </button>
+              <button 
+                onClick={() => setView('create')} 
+                className="text-white/60 text-[11px] underline underline-offset-4 py-2 hover:text-white transition-colors"
+              >
+                다시 묵상하며 수정하기
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 5. 보관함 디테일 일품 말씀 */}
+        {view === 'detail' && selectedCard && (
+          <div className="absolute inset-0 bg-black z-50 flex flex-col">
+            <button 
+              onClick={() => { setView('profile'); setSelectedCard(null); }}
+              className="absolute top-16 left-4 z-[60] text-[#DFBA73] p-2.5 flex items-center gap-2 bg-black/40 rounded-full backdrop-blur-md border border-white/10 shadow-lg active:scale-95 transition-transform"
+            >
+              <Icons.ArrowLeft />
+            </button>
+            <div className="flex-1 relative">
+              <FeedCard 
+                card={selectedCard} 
+                isPreview={false} 
+                onShowToast={showToast} 
+                onToggleSave={handleToggleSave}
+                isSaved={savedCards.some(c => c.text === selectedCard.text)}
+                onNavigateProfile={handleNavigateProfile}
+                likedCardsState={likedCardsState}
+                onToggleLikeGlobal={handleToggleLikeGlobal}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* 6. 성소 보관 서재 프로필 뷰 (타인 조회 대응 완료) */}
+        {view === 'profile' && (
+          <div className="flex-1 flex flex-col bg-[#050505] z-10 pb-16 overflow-y-auto hide-scrollbar">
+            
+            {/* 다른 유저의 프로필일 때 은혜광장(피드)으로 돌아가는 뒤로가기 버튼 */}
+            {activeProfileUser !== "은혜나눔인" && (
+              <div className="pt-20 px-4 bg-[#111111]">
+                <button 
+                  onClick={() => setView('feed')}
+                  className="flex items-center gap-2 text-[#DFBA73] text-[12px] bg-black/40 border border-white/10 py-1.5 px-3 rounded-full hover:bg-black/60 transition-colors"
+                >
+                  <Icons.ArrowLeft /> 은혜광장(피드)으로 돌아가기
+                </button>
+              </div>
+            )}
+
+            <div className={`px-6 pb-6 border-b border-white/5 bg-gradient-to-b from-[#111111] to-[#050505] flex flex-col items-center text-center ${activeProfileUser === "은혜나눔인" ? "pt-20" : "pt-6"}`}>
+              <div className="relative">
+                <div className="absolute inset-0 rounded-full border border-[#DFBA73] animate-ping opacity-25" />
+                <div className="w-16 h-16 rounded-full border-2 border-[#DFBA73] flex items-center justify-center bg-gradient-to-tr from-[#1E1812] to-black text-[#DFBA73] shadow-[0_0_25px_rgba(223,186,115,0.25)] mb-3">
+                   <Icons.User />
+                </div>
+              </div>
+              
+              <h1 className="text-lg font-bold text-[#F9F7F1] tracking-wide">
+                @{activeProfileUser === "은혜나눔인" ? "나의 서재" : activeMeta.name}
+              </h1>
+              <p className="text-[#DFBA73]/80 text-[10.5px] mt-1 font-myeongjo tracking-[0.1em] px-4 break-keep leading-relaxed">
+                {activeMeta.desc}
+              </p>
+              
+              <div className="grid grid-cols-2 gap-4 w-full max-w-[240px] mt-5 pt-4 border-t border-white/5 text-center">
+                <div>
+                  <div className="text-[14px] font-bold text-[#DFBA73]">{getVisibleCardsForActiveProfile().length}</div>
+                  <div className="text-[9px] text-white/40 mt-0.5">작성/보관 성구</div>
+                </div>
+                <div>
+                  <div className="text-[14px] font-bold text-[#DFBA73]">
+                    {/* 내 서재에서의 글로벌 공감 수치 및 개별 공감 수치 합산 실시간 반영 */}
+                    {activeProfileUser === "은혜나눔인" 
+                      ? savedCards.reduce((acc, card) => acc + (card.likes || 0) + (likedCardsState[card.id] ? 1 : 0), 0)
+                      : activeMeta.stars
+                    }
+                  </div>
+                  <div className="text-[9px] text-white/40 mt-0.5">공감 은혜</div>
+                </div>
+              </div>
+            </div>
+            
+            {/* 서재 내부 그리드 표현 */}
+            <div className="p-4 flex-1">
+              <h2 className="text-[11px] text-[#DFBA73]/80 font-bold tracking-widest uppercase font-myeongjo mb-3.5 pl-1">
+                {activeProfileUser === "은혜나눔인" ? "소장한 묵상 카드" : `@${activeProfileUser} 님의 묵상 기록`}
+              </h2>
+              
+              {getVisibleCardsForActiveProfile().length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 px-6 text-center border border-dashed border-white/5 rounded-2xl bg-white/[0.01]">
+                  <p className="text-white/30 text-[12px] font-myeongjo leading-relaxed">
+                    수록된 말씀이 없습니다.<br />새로운 말씀 묵상을 창조하거나 보관함에 은혜를 담아내세요.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 animate-fade-in-up">
+                  {getVisibleCardsForActiveProfile().map(card => (
+                    <div 
+                      key={card.id || card.text} 
+                      className="relative aspect-[9/16] bg-[#121212] cursor-pointer group overflow-hidden rounded-xl border border-white/5 transition-transform active:scale-95 shadow-md"
+                      onClick={() => { setSelectedCard(card); setView('detail'); }}
+                    >
+                      <img 
+                        src={card.image} 
+                        alt="thumb" 
+                        className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-500 group-hover:scale-105" 
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
+                      <div className="absolute bottom-2 left-2 text-[#DFBA73]/85 scale-90">
+                        <Icons.Music />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <p className="text-white/20 text-[8px] tracking-widest text-center py-6 font-sans">
+              오디세이 묵상 하우스 &bull; ALL RIGHTS RESERVED
+            </p>
+          </div>
+        )}
+
+        {/* 7. 프리미엄 도크 바 네비게이션 */}
+        <div className="absolute bottom-0 w-full h-[80px] bg-gradient-to-t from-black via-black/95 to-transparent backdrop-blur-md flex justify-around items-center pb-4 px-8 z-50 pointer-events-auto border-t border-white/[0.04]">
+          <button 
+            onClick={() => setView('feed')} 
+            className={`flex flex-col items-center p-2.5 transition-all duration-300 ${view === 'feed' ? 'text-[#DFBA73] scale-110 drop-shadow-md' : 'text-white/30'}`}
+          >
+            <Icons.Home />
+            <span className="text-[9px] mt-1 font-medium">은혜광장</span>
+          </button>
+          
+          <button 
+            onClick={() => { setVerseRefInput(''); setVerseText(''); setView('create'); }} 
+            className={`w-13 h-13 rounded-full flex items-center justify-center transform -translate-y-2.5 transition-all duration-300 pulse-gold ${
+              view === 'create' 
+                ? 'bg-gradient-to-tr from-[#DFBA73] to-[#F5DCA9] text-black scale-105 border-[3px] border-[#DFBA73]/60' 
+                : 'bg-[#1c1814] text-[#DFBA73] border-2 border-[#DFBA73]/40 hover:border-[#DFBA73] shadow-[0_4px_20px_rgba(223,186,115,0.25)]'
+            }`}
+          >
+            <Icons.Plus />
+          </button>
+          
+          <button 
+            onClick={() => { setActiveProfileUser("은혜나눔인"); setView('profile'); }} 
+            className={`flex flex-col items-center p-2.5 transition-all duration-300 ${(view === 'profile' || view === 'detail') && activeProfileUser === "은혜나눔인" ? 'text-[#DFBA73] scale-110 drop-shadow-md' : 'text-white/30'}`}
+          >
+            <Icons.User />
+            <span className="text-[9px] mt-1 font-medium">내 서재</span>
+          </button>
+        </div>
+
+        {/* 8. 프리미엄 인앱 알림 토스트 */}
+        <div 
+          className={`absolute top-20 left-4 right-4 z-[99] bg-[#16120e]/98 border border-[#DFBA73]/30 p-3.5 rounded-2xl flex items-center gap-3 shadow-2xl transition-all duration-500 ease-out ${toast.show ? 'translate-y-0 opacity-100' : '-translate-y-12 opacity-0 pointer-events-none'}`}
+        >
+          <div className="text-[#DFBA73]">
+            <Icons.Sparkles />
+          </div>
+          <p className="text-[12px] font-myeongjo text-[#FDFBF7] font-semibold flex-1 leading-normal">{toast.message}</p>
+        </div>
+
+      </div>
+    </div>
+  );
+}
