@@ -656,16 +656,9 @@ const handleOpenMeditation = (e) => {
       }
     };
 const handleAudioEnded = () => {
-    if (playCount.current < 1) {
-      playCount.current += 1;
-      if (audioRef.current) {
-        audioRef.current.play().catch(() => {});
-      }
-    } else {
-      setIsPlaying(false);
-      playCount.current = 0; 
-      onShowToast("성경 낭독이 2회 반복 완료되어 경건히 정지되었습니다.", "info");
-    }
+    setIsPlaying(false);
+    playCount.current = 0; 
+    onShowToast("성경 낭독이 완료되었습니다.", "info");
   };
 
   const speakWebSpeech = (forceUnmute = false) => {
@@ -854,7 +847,7 @@ const handleAudioEnded = () => {
       {user && String(user.id) === String(card.author_id) && !isPreview && (
         <button 
           onClick={(e) => { e.stopPropagation(); onDeleteCard(card.id); }}
-          className="absolute top-[calc(124px+env(safe-area-inset-top))] right-4 z-30 p-2.5 rounded-full bg-red-950/50 hover:bg-red-950/80 border border-red-500/20 text-red-400 active:scale-95 transition-all"
+          className="absolute top-[calc(114px+env(safe-area-inset-top))] right-4 z-30 p-2.5 rounded-full bg-red-950/50 hover:bg-red-950/80 border border-red-500/20 text-red-400 active:scale-95 transition-all"
           title="말씀 카드 삭제"
         >
           <Icons.Trash />
@@ -865,7 +858,7 @@ const handleAudioEnded = () => {
       {card.audio && !isPreview && (
         <button 
           onClick={toggleMute}
-          className="absolute top-[calc(76px+env(safe-area-inset-top))] right-4 z-30 p-2.5 rounded-full bg-black/40 hover:bg-black/60 border border-white/10 text-white/80 active:scale-95 transition-all"
+          className="absolute top-[calc(68px+env(safe-area-inset-top))] right-4 z-30 p-2.5 rounded-full bg-black/40 hover:bg-black/60 border border-white/10 text-white/80 active:scale-95 transition-all"
         >
           {isMuted ? <Icons.VolumeX /> : <Icons.Volume />}
         </button>
@@ -2217,8 +2210,8 @@ return (
           <OnboardingView user={user} onCompleteOnboarding={handleCompleteOnboarding} onCancel={handleLogout} />
         ) : (
           <>
-            {/* 성전 상단 프리미엄 헤더 라인 (상단 상태바 시계 영역 겹침 방지 보정 완료) */}
-            {(view === 'feed' || view === 'profile') && (
+            {/* 성전 상단 프리미엄 헤더 라인 (상단 상태바 시계 영역 겹침 방지 보정 완료 - 피드 뷰 전용) */}
+            {view === 'feed' && (
               <div className={`absolute top-0 left-0 right-0 h-[calc(64px+env(safe-area-inset-top))] bg-gradient-to-b from-[#050505] via-[#050505]/95 to-transparent z-[50] pointer-events-none flex flex-col justify-end pb-2 px-6 pt-[env(safe-area-inset-top)]`}>
                 <div className="flex items-center justify-between w-full">
                   <div className="h-[1px] bg-gradient-to-r from-transparent via-[#DFBA73]/40 to-transparent flex-1 mr-4"></div>
@@ -2263,11 +2256,27 @@ return (
             {view === 'create' && (
               <div className="flex-1 flex flex-col bg-[#FDFBF7] text-[#2C241B] p-6 pt-[calc(10px+env(safe-area-inset-top))] z-10 pb-[calc(76px+env(safe-area-inset-bottom))] overflow-y-auto hide-scrollbar">
                 <div className="flex justify-between items-start mb-3 w-full pt-1.5">
-                  <div className="flex-1">
+                  <div className="flex-1 mr-2 text-left">
                     <span className="text-[9px] text-[#A37B3F] font-semibold tracking-[0.2em] uppercase">Visual Devotion</span>
                     <h1 className="text-xl font-myeongjo font-extrabold text-[#1A1510] tracking-tight mt-0.5">성전 성화 수록</h1>
                     <p className="text-[#8B7D6B] text-[10.5px] mt-0.5 font-sans">{getGreetingMessage()}</p>
                   </div>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      const next = !isLargeFont;
+                      setIsLargeFont(next);
+                      localStorage.setItem('biblegram_large_font', String(next));
+                      showToast(next ? "큰글씨보기가 활성화되었습니다." : "큰글씨보기가 꺼졌습니다.", "success");
+                    }}
+                    className={`shrink-0 flex items-center justify-center px-3 py-1.5 rounded-full border transition-all duration-300 active:scale-95 text-[10.5px] font-bold mt-1.5 ${
+                      isLargeFont 
+                        ? 'bg-[#3A3025] border-[#3A3025] text-[#DFBA73] shadow-sm' 
+                        : 'bg-[#F4EFE6] border-[#D8CFC0] text-[#8B7D6B] hover:text-[#3A3025]'
+                    }`}
+                  >
+                    <span>큰글씨 보기 {isLargeFont ? 'ON' : 'OFF'}</span>
+                  </button>
                 </div>
                 
                 <div className="mb-3.5">
@@ -2613,38 +2622,6 @@ return (
                   {/* 설정 아이템 리스트 */}
                   <div className="flex flex-col gap-3.5 mt-2">
                     
-                    {/* 글씨 크기 설정 */}
-                    <div className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] px-4.5 py-4.5 rounded-2xl">
-                      <div className="flex flex-col gap-0.5 text-left flex-1 mr-3">
-                        <span className="text-[13.5px] font-bold text-stone-200 font-sans">글씨 크기 설정</span>
-                        <span className="text-[9.5px] text-stone-500 font-sans leading-normal">말씀과 묵상 해설의 글자 크기를 조절합니다.</span>
-                      </div>
-                      <div className="flex bg-[#1a1612] border border-[#DFBA73]/15 rounded-xl p-1 shrink-0">
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            setIsLargeFont(false);
-                            localStorage.setItem('biblegram_large_font', 'false');
-                            showToast("기본 글씨로 설정되었습니다.", "success");
-                          }}
-                          className={`px-4 py-1.5 text-[11.5px] font-bold rounded-[8px] transition-all duration-300 ${!isLargeFont ? 'bg-[#DFBA73] text-stone-950 shadow-[0_2px_8px_rgba(223,186,115,0.25)]' : 'text-stone-400 hover:text-stone-200'}`}
-                        >
-                          기본
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            setIsLargeFont(true);
-                            localStorage.setItem('biblegram_large_font', 'true');
-                            showToast("큰글씨로 설정되었습니다.", "success");
-                          }}
-                          className={`px-4 py-1.5 text-[11.5px] font-bold rounded-[8px] transition-all duration-300 ${isLargeFont ? 'bg-[#DFBA73] text-stone-950 shadow-[0_2px_8px_rgba(223,186,115,0.25)]' : 'text-stone-400 hover:text-stone-200'}`}
-                        >
-                          큰글씨
-                        </button>
-                      </div>
-                    </div>
-
                     {/* 로그인 정보 표시 */}
                     <div className="flex flex-col gap-1.5 bg-white/[0.02] border border-white/[0.04] p-4.5 rounded-2xl text-center">
                       <span className="text-[10px] text-stone-500 font-sans uppercase tracking-widest">현재 로그인 플랫폼</span>
