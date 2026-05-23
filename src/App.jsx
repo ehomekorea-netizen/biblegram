@@ -308,25 +308,30 @@ function generateVerseImage(visualTheme) {
 }
 
 async function generateVerseAudio(verse, voice = 'onyx') {
-  const response = await fetch('/api/generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'tts', text: verse, voice })
-  });
-  
-  if (!response.ok) {
-    throw new Error(`OpenAI TTS API Error: ${response.status}`);
+  try {
+    const response = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'tts', text: verse, voice })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`OpenAI TTS API Error: ${response.status}`);
+    }
+    
+    const arrayBuffer = await response.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = window.btoa(binary);
+    return `data:audio/mp3;base64,${base64}`;
+  } catch (err) {
+    console.warn("TTS generation failed, falling back to Web Speech:", err);
+    return 'web-speech';
   }
-  
-  const arrayBuffer = await response.arrayBuffer();
-  const bytes = new Uint8Array(arrayBuffer);
-  let binary = '';
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  const base64 = window.btoa(binary);
-  return `data:audio/mp3;base64,${base64}`;
 }
 
 // ==========================================
@@ -2202,15 +2207,23 @@ const getGreetingMessage = () => {
     if (hour >= 12 && hour < 18) return "분주한 일상을 내려놓고 말씀이 머무는 성소로 나아오세요";
     return "고요하고 평화로운 밤, 구주의 보혈 같은 따뜻함 속에 깃들 시간입니다";
   };
+  const isMyCard = (c) => {
+    if (!c) return false;
+    const authorIdMatches = user && c.author_id === user.id;
+    const nicknameMatches = nickname && c.author === nickname;
+    const defaultAuthorMatches = c.author === "은혜나눔인";
+    return !!(authorIdMatches || nicknameMatches || defaultAuthorMatches);
+  };
+
   const getSavedCardsOfOthers = () => {
     if (!user) return [];
-    return savedCards.filter(c => c.author_id !== user.id);
+    return savedCards.filter(c => !isMyCard(c));
   };
 
   const getCreatedCards = () => {
     const isOwnProfile = activeProfileUser === nickname || activeProfileUser === "은혜나눔인";
     if (isOwnProfile) {
-      return savedCards.filter(c => c.author_id === user?.id);
+      return feedCards.filter(c => isMyCard(c));
     } else {
       return feedCards.filter(c => c.author === activeProfileUser);
     }
@@ -2777,7 +2790,7 @@ return (
                     >
                       <div className="text-[14px] font-extrabold tracking-wide">
                         {activeProfileUser === nickname || activeProfileUser === "은혜나눔인" 
-                          ? savedCards.filter(c => c.author_id === user?.id).length 
+                          ? feedCards.filter(c => isMyCard(c)).length 
                           : feedCards.filter(c => c.author === activeProfileUser).length
                         }
                       </div>
@@ -2794,7 +2807,7 @@ return (
                     >
                       <div className="text-[14px] font-extrabold tracking-wide">
                         {activeProfileUser === nickname || activeProfileUser === "은혜나눔인" 
-                          ? savedCards.filter(c => c.author_id !== user?.id).length 
+                          ? savedCards.filter(c => !isMyCard(c)).length 
                           : otherUserSavedCards.length
                         }
                       </div>
