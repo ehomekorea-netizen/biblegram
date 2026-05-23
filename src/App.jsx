@@ -2345,12 +2345,12 @@ return (
 
             {/* 2. 묵상 생성 및 입력 뷰 영역 */}
             {view === 'create' && (
-              <div className="flex-1 flex flex-col bg-[#FDFBF7] text-[#2C241B] p-6 pt-[calc(10px+env(safe-area-inset-top))] z-10 pb-[calc(76px+env(safe-area-inset-bottom))] overflow-y-auto hide-scrollbar">
+              <div className={`flex-1 flex flex-col bg-[#FDFBF7] text-[#2C241B] p-6 pt-[calc(10px+env(safe-area-inset-top))] z-10 pb-[calc(76px+env(safe-area-inset-bottom))] overflow-y-auto hide-scrollbar ${isLargeFont ? 'large-font' : ''}`}>
                 <div className="flex justify-between items-start mb-3 w-full pt-1.5">
                   <div className="flex-1 mr-2 text-left">
                     <span className="text-[9px] text-[#A37B3F] font-semibold tracking-[0.2em] uppercase">Visual Devotion</span>
-                    <h1 className="text-xl font-myeongjo font-extrabold text-[#1A1510] tracking-tight mt-0.5 devotion-create-title">성전 성화 수록</h1>
-                    <p className="text-[#8B7D6B] text-[10.5px] mt-0.5 font-sans devotion-create-subtitle">{getGreetingMessage()}</p>
+                    <h1 className={`font-myeongjo font-extrabold text-[#1A1510] tracking-tight mt-0.5 transition-all ${isLargeFont ? 'text-[27px]' : 'text-[23px]'}`}>성전 성화 수록</h1>
+                    <p className={`text-[#8B7D6B] mt-0.5 font-sans transition-all ${isLargeFont ? 'text-[14px]' : 'text-[12px]'}`}>{getGreetingMessage()}</p>
                   </div>
                   <button 
                     type="button"
@@ -2370,10 +2370,12 @@ return (
                   </button>
                 </div>
                 
-                <div className="mb-3.5">
-                  <label className="text-[11px] text-[#A37B3F] font-bold tracking-wider mb-1 block devotion-create-label">1단계: 성서 말씀 탐색</label>
-                  <span className="text-[8.5px] text-stone-500/90 block mb-1.5 leading-relaxed devotion-create-help">
-                    한 구절만 찾거나(예: <b>요한복음 3:16</b>), 여러 구절을 연속해서 한 번에 찾을 수도 있습니다 (예: <b>창세기 1:6~9</b>).
+                <div className="mb-3.5 text-left">
+                  <label className={`text-[#A37B3F] font-bold tracking-wider mb-1 block transition-all ${isLargeFont ? 'text-[16px]' : 'text-[13px]'}`}>1단계: 성서 말씀 탐색</label>
+                  <span className={`text-stone-500/90 block mb-1.5 leading-relaxed transition-all ${isLargeFont ? 'text-[13px]' : 'text-[10.5px]'}`}>
+                    한 구절만 찾거나(예: <b>요한복음 3:16</b>),
+                    <br />
+                    여러 구절을 연속해서 한 번에 찾을 수도 있습니다 (예: <b>창세기 1:6~9</b>).
                   </span>
                   <div className="flex space-x-2 w-full">
                     <input 
@@ -2381,37 +2383,37 @@ return (
                       value={verseRefInput}
                       onChange={(e) => setVerseRefInput(e.target.value)}
                       placeholder="예: 요한복음 3:16 또는 창세기 1:6~9"
-                      className="min-w-0 flex-1 bg-[#F4EFE6] border-b border-[#D8CFC0] rounded-t-xl py-2 px-4 focus:outline-none focus:border-[#A37B3F] font-myeongjo placeholder:text-[#C5B9AA] text-[16px] md:text-[14px] transition-colors devotion-create-input"
+                      className={`min-w-0 flex-1 bg-[#F4EFE6] border-b border-[#D8CFC0] rounded-t-xl px-4 focus:outline-none focus:border-[#A37B3F] font-myeongjo placeholder:text-[#C5B9AA] transition-colors ${isLargeFont ? 'text-[21px] py-3' : 'text-[17px] py-2'}`}
                       onKeyDown={(e) => e.key === 'Enter' && handleSearchVerse()}
                     />
                     <button 
                       type="button"
                       onClick={handleSearchVerse} 
                       disabled={isSearching} 
-                      className="shrink-0 bg-[#3A3025] hover:bg-[#201A14] text-[#F9F7F1] px-4 rounded-xl font-sans font-medium text-[13px] whitespace-nowrap transition-transform active:scale-95 disabled:opacity-50 devotion-create-btn"
+                      className={`shrink-0 bg-[#3A3025] hover:bg-[#201A14] text-[#F9F7F1] px-4 rounded-xl font-sans font-medium whitespace-nowrap transition-transform active:scale-95 disabled:opacity-50 ${isLargeFont ? 'text-[16px] py-3' : 'text-[14px] py-2'}`}
                     >
                       {isSearching ? '수렴중...' : '탐색'}
                     </button>
                   </div>
                 </div>
 
-                <div className="mb-3">
-                  <label className="text-[11px] text-[#A37B3F] font-bold tracking-wider mb-1 block devotion-create-label">2단계: 마음에 새긴 구절 가다듬기 (성경말씀)</label>
+                <div className="mb-3 text-left">
+                  <label className={`text-[#A37B3F] font-bold tracking-wider mb-1 block transition-all ${isLargeFont ? 'text-[16px]' : 'text-[13px]'}`}>2단계: 마음에 새긴 구절 가다듬기 (성경말씀)</label>
                   <textarea 
                     value={verseText}
                     onChange={(e) => setVerseText(e.target.value)}
                     placeholder="위의 탐색 단추를 이용해 채워 넣거나, 가슴 속에 담아둔 말씀을 이곳에 직접 서술해 주세요..."
-                    className="w-full min-h-[80px] bg-white/80 border border-[#E8E1D5] rounded-2xl p-3.5 focus:outline-none focus:ring-1 focus:ring-[#A37B3F] resize-none font-myeongjo text-[16px] md:text-[14px] placeholder:text-[13.5px] leading-[1.6] tracking-[0.02em] shadow-[inset_0_2px_10px_rgba(0,0,0,0.03)] devotion-create-textarea"
+                    className={`w-full bg-white/80 border border-[#E8E1D5] rounded-2xl p-3.5 focus:outline-none focus:ring-1 focus:ring-[#A37B3F] resize-none font-myeongjo leading-[1.6] tracking-[0.02em] shadow-[inset_0_2px_10px_rgba(0,0,0,0.03)] transition-all ${isLargeFont ? 'text-[20px] min-h-[130px]' : 'text-[17px] min-h-[100px]'}`}
                   />
                 </div>
 
-                <div className="mb-3.5">
-                  <label className="text-[11px] text-[#A37B3F] font-bold tracking-wider mb-1.5 block devotion-create-label">3단계: 나의 오늘 고백 & 간구 (선택)</label>
+                <div className="mb-3.5 text-left">
+                  <label className={`text-[#A37B3F] font-bold tracking-wider mb-1.5 block transition-all ${isLargeFont ? 'text-[16px]' : 'text-[13px]'}`}>3단계: 나의 오늘 고백 & 간구 (선택)</label>
                   
                   <div className="flex items-center justify-between bg-[#F4EFE6] px-4 py-2 rounded-2xl border border-[#D8CFC0] mb-2">
-                    <div className="flex flex-col">
-                      <span className="text-[12px] font-bold text-[#1A1510] devotion-create-option-title">오늘의 고백 추가하기</span>
-                      <span className="text-[9px] text-stone-500 devotion-create-option-desc">고백 활성화 시 묵상과 성화에 오늘 마음이 융합됩니다.</span>
+                    <div className="flex flex-col text-left">
+                      <span className={`font-bold text-[#1A1510] transition-all ${isLargeFont ? 'text-[16.5px]' : 'text-[13.5px]'}`}>오늘의 고백 추가하기</span>
+                      <span className={`text-stone-500 devotion-create-option-desc transition-all ${isLargeFont ? 'text-[13px]' : 'text-[10.5px]'}`}>고백 활성화 시 묵상과 성화에 오늘 마음이 융합됩니다.</span>
                     </div>
                     <button 
                       type="button"
@@ -2427,7 +2429,7 @@ return (
                       value={userThought}
                       onChange={(e) => setUserThought(e.target.value)}
                       placeholder="오늘 내가 마주한 상황, 주님 앞에 뉘우치는 고백, 혹은 간절한 기도의 실상을 적어주세요."
-                      className="w-full min-h-[80px] bg-white/85 border border-[#E8E1D5] rounded-2xl p-3.5 focus:outline-none focus:ring-1 focus:ring-[#A37B3F] resize-none font-sans text-[16px] md:text-[13px] leading-[1.5] placeholder:text-stone-400 shadow-sm animate-fade-in-up devotion-create-textarea"
+                      className={`w-full bg-white/85 border border-[#E8E1D5] rounded-2xl p-3.5 focus:outline-none focus:ring-1 focus:ring-[#A37B3F] resize-none font-sans leading-[1.5] placeholder:text-stone-400 shadow-sm animate-fade-in-up transition-all ${isLargeFont ? 'text-[20px] min-h-[130px]' : 'text-[17px] min-h-[100px]'}`}
                     />
                   )}
                 </div>
@@ -2435,7 +2437,7 @@ return (
                 <button 
                   onClick={handleCreate}
                   disabled={!verseText.trim()}
-                  className="w-full py-3.5 rounded-xl bg-[#1e1510] hover:bg-[#3A3025] text-[#DFBA73] font-bold text-[13.5px] tracking-widest disabled:opacity-30 shadow-lg active:scale-[0.98] transition-all mt-1 mb-2.5 uppercase devotion-create-cta"
+                  className={`w-full rounded-xl bg-[#1e1510] hover:bg-[#3A3025] text-[#DFBA73] font-bold tracking-widest disabled:opacity-30 shadow-lg active:scale-[0.98] transition-all uppercase ${isLargeFont ? 'text-[18px] py-4.5 mt-2' : 'text-[15px] py-3.5 mt-1'}`}
                 >
                   성화 말씀 카드 창조하기
                 </button>
