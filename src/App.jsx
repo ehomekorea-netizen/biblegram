@@ -2113,20 +2113,42 @@ const handleSearchVerse = async () => {
       showToast("마음에 품을 말씀 구절을 기입해 주세요.", "info");
       return;
     }
+    
     setView('loading');
+    const actualThought = includeThought ? userThought : "";
+    
+    let visualAnalysis = { visualTheme: "light", textConcept: "GRACE" };
+    let meditationVal = "주님의 깊은 은혜가 마음에 가득하길 빕니다.";
+    let audioUri = "web-speech";
+    
     try {
-      setLoadingStep('하늘의 빛과 지혜를 모아 오늘의 말씀 카드를 융합하는 중...');
-      const actualThought = includeThought ? userThought : "";
-
-      // 비동기 API 요청 병렬화로 서버지연 완벽 해소
-      const [visualAnalysis, meditationVal, audioUri] = await Promise.all([
-        analyzeVerseForVisuals(verseText),
-        generateMeditation(verseText, actualThought),
-        generateVerseAudio(verseText, selectedVoice)
-      ]);
-
+      // 1단계: 시각화 분석
+      setLoadingStep('성구의 신학적 분위기를 조율하는 중 (시각 테마 분석)...');
+      try {
+        visualAnalysis = await analyzeVerseForVisuals(verseText);
+      } catch (err) {
+        console.warn("Visual analysis failed, using fallback:", err);
+      }
+      
+      // 2단계: 묵상 분석
+      setLoadingStep('구주의 보혈 같은 지혜의 해석을 기록하는 중 (해설 융합)...');
+      try {
+        meditationVal = await generateMeditation(verseText, actualThought);
+      } catch (err) {
+        console.warn("Meditation generation failed, using fallback:", err);
+      }
+      
+      // 3단계: 성구 낭독 음성 생성
+      setLoadingStep('성전에 울릴 거룩한 낭독음을 조율하는 중 (음성 합성)...');
+      try {
+        audioUri = await generateVerseAudio(verseText, selectedVoice);
+      } catch (err) {
+        console.warn("TTS audio generation failed, using fallback:", err);
+      }
+      
+      // 성화 이미지 최종 지정
       const imageUri = generateVerseImage(visualAnalysis.visualTheme || 'light');
-
+      
       setCurrentResult({ 
         id: Date.now(), 
         text: verseText, 
@@ -2136,13 +2158,25 @@ const handleSearchVerse = async () => {
         userThought: actualThought,
         likes: 0
       });
+      
       setView('result');
       showToast("성구의 신학적 분위기가 반영된 묵상 카드가 융합되었습니다.", "success");
     } catch (error) {
-      console.error("생성 중단 에러:", error);
-      // 무한 버퍼링 차단: 에러 발생 시 즉각 토스트 경고 후 창작 뷰로 복귀
-      showToast('API 서버 지연 또는 보안 차단이 발생했습니다. 다시 시도해주세요.', 'error');
-      setView('create');
+      console.error("생성 치명적 중단 에러:", error);
+      showToast('성전 카드 생성 중 지연이 발생하여 기본 테마로 안전하게 우회합니다.', 'info');
+      
+      // 모든 것이 통째로 깨져도 가장 안전한 기본값으로 강제 복구하여 진입
+      const fallbackImage = generateVerseImage('light');
+      setCurrentResult({
+        id: Date.now(),
+        text: verseText,
+        image: fallbackImage,
+        audio: 'web-speech',
+        meditation: "주님의 신비롭고 깊은 은혜가 마음의 성소에 항상 가득하기를 기원합니다.",
+        userThought: actualThought,
+        likes: 0
+      });
+      setView('result');
     }
   };
 const handlePublish = async () => {
