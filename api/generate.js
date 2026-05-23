@@ -42,7 +42,6 @@ const CURATED_HOLY_IMAGES = {
 };
 
 export default async function handler(req, res) {
-  // Enable CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -76,16 +75,10 @@ export default async function handler(req, res) {
     unsplashApiKey = unsplashApiKey.trim().replace(/[\r\n]/g, '');
   }
 
-  console.log(`Loaded API Keys: Gemini=${!!apiKey} (${apiKey.length} chars), OpenAI=${!!openaiApiKey} (${openaiApiKey ? openaiApiKey.length : 0} chars), Unsplash=${!!unsplashApiKey} (${unsplashApiKey ? unsplashApiKey.length : 0} chars)`);
-
   const { action, reference, verseText, userThought } = req.body;
 
   try {
-    let prompt = '';
-    let systemInstruction = null;
-    let responseMimeType = 'application/json';
-
-    // Handle action: 'tts' separately
+    // 1. OpenAI TTS 처리
     if (action === 'tts') {
       const textToSpeak = verseText || req.body.text;
       if (!textToSpeak) {
@@ -93,7 +86,7 @@ export default async function handler(req, res) {
       }
 
       if (!openaiApiKey) {
-        return res.status(400).json({ error: 'OpenAI API key is missing. Falling back to client-side SpeechSynthesis.' });
+        return res.status(400).json({ error: 'OpenAI API key is missing.' });
       }
 
       const ttsUrl = 'https://api.openai.com/v1/audio/speech';
@@ -127,17 +120,27 @@ export default async function handler(req, res) {
       return res.status(200).send(buffer);
     }
 
+    // 2. 성경 찾기, 묵상 분석 등은 고가용성/가성비 모델인 OpenAI gpt-4o-mini를 프록시로 안전하게 호출
+    let prompt = '';
+    let systemInstruction = "당신은 영적으로 무척 지혜롭고 자애로운 기독교 묵상 도우미입니다. 경어체를 쓰며, 주님의 온유하고 평화로운 품을 연상시키는 정중하고 부드러운 어조로 위로와 지혜를 안겨주세요.";
+    let isJson = true;
+
     if (action === 'search') {
       if (!reference) {
         return res.status(400).json({ error: 'Reference is required for search action' });
       }
-      prompt = `사용자가 "${reference}"에 해당하는 성경 구절 또는 성경 범위를 찾으려고 합니다. 개역개정 번역본 기준으로 해당 장절 범위의 본문 전체를 누락 없이 온전히 찾아서 반환해 주세요.
-  
-  [중요 필수 준수 사항]
-  1. 사용자가 범위(예: 마태복음 7:4~7)를 입력한 경우, 반드시 시작 구절(4절)부터 끝 구절(7절)까지 속한 모든 구절을 순서대로 하나도 빼놓지 말고 전부 찾아서 합치십시오. 절대 마지막 구절(7절) 하나만 반환하거나 본문을 축소 가공하여 반환하지 마십시오.
-  2. 낭독과 시각화 레이아웃에 걸맞도록 각 절 사이를 하나의 부드러운 연결 문단으로 병합하여 반환하십시오.
-  3. JSON 형식은 반드시 아래와 같이 완벽한 순수 객체 구조여야 합니다:
-     {"text": "구절 범위 내의 모든 구절 본문들을 순서대로 온전히 나열한 내용... (성경책 장:시작절~끝절)"}`;
+      prompt = `사용자가 "${reference}"에 해당하는 성경 구절을 검색하려고 합니다.
+개역개정 번역본 기준으로 사용자가 요청한 정확한 장절 범위의 본문만을 찾아 반환해 주세요.
+
+[★ 절대 필수 준수 지침 ★]
+1. 단일 절 요청 처리: 사용자가 특정 절 하나만 지정한 경우(예: "창세기 1장 1절", "창세 1:1", "요한복음 3장 16절" 등), 절대로 다른 절(2절, 3절 등)을 붙이지 말고 오직 해당 1개의 절만 완벽하게 반환하십시오.
+   - 예: "창세기 1장 1절"을 검색하면 오직 1절 본문인 "태초에 하나님이 천지를 창조하시니라." 한 문장만 반환해야 합니다. 뒤따르는 2절("땅이 혼돈하고 공허하며...")이나 3절은 절대 포함하지 마십시오.
+2. 범위 절 요청 처리: 사용자가 명시적인 범위(예: "창세기 1:6~9", "마태복음 7:4~7" 등)를 지정한 경우에만 해당 범위 내의 절들을 빠짐없이 순서대로 합쳐서 반환하십시오.
+3. 사설이나 설명, 마크다운 기호를 모두 제외하고 아래 JSON 형식으로만 정확히 응답하십시오:
+{
+  "text": "정확한 성경 구절 본문"
+}`;
+      systemInstruction = "당신은 개역개정 성경 구절을 글자 하나 틀리지 않고 정확하게 검색해 주는 정확하고 엄격한 성경 데이터베이스 에이전트입니다. 창작이나 추론, 임의 덧붙임 없이 오직 사용자가 명시한 정확한 장절 본문만을 반환해야 합니다.";
     } else if (action === 'create') {
       if (!verseText) {
         return res.status(400).json({ error: 'Verse text is required for create action' });
@@ -162,43 +165,52 @@ export default async function handler(req, res) {
       prompt = `다음 성경 구절을 바탕으로 은혜롭고 지혜가 가득한 오늘의 묵상 해설(2~3문장)과 1줄 온전한 기도문을 작성해 주세요.
 구절: ${verseText}
 사용자 고백: ${userThought || "없음"}`;
-      systemInstruction = {
-        parts: [{ text: "당신은 영적으로 무척 지혜롭고 자애로운 기독교 묵상 도우미입니다. 경어체를 쓰며, 주님의 온유하고 평화로운 품을 연상시키는 정중하고 부드러운 어조로 위로와 지혜를 안겨주세요." }]
-      };
-      responseMimeType = 'text/plain';
+      isJson = false;
     } else {
       return res.status(400).json({ error: 'Invalid action specified' });
     }
 
-    const payload = {
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType }
-    };
-
-    if (systemInstruction) {
-      payload.systemInstruction = systemInstruction;
+    if (!openaiApiKey) {
+      return res.status(400).json({ error: 'Server configuration error: OpenAI API key is missing.' });
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const messages = [
+      { role: 'system', content: systemInstruction },
+      { role: 'user', content: prompt }
+    ];
 
+    const openaiPayload = {
+      model: 'gpt-4o-mini',
+      messages,
+      temperature: action === 'search' ? 0.0 : 0.7
+    };
+
+    if (isJson) {
+      openaiPayload.response_format = { type: 'json_object' };
+    }
+
+    const url = 'https://api.openai.com/v1/chat/completions';
     const apiResponse = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(openaiPayload)
     });
 
     if (!apiResponse.ok) {
       const errText = await apiResponse.text();
-      console.error(`Gemini API returned error: ${apiResponse.status} - ${errText}`);
-      return res.status(apiResponse.status).json({ error: `Gemini API error: ${apiResponse.statusText}` });
+      console.error(`OpenAI Chat completions API returned error: ${apiResponse.status} - ${errText}`);
+      return res.status(apiResponse.status).json({ error: `OpenAI API error: ${apiResponse.statusText}` });
     }
 
     const result = await apiResponse.json();
 
     try {
-      let rawText = result.candidates[0].content.parts[0].text;
+      let rawText = result.choices[0].message.content;
       
-      if (responseMimeType === 'application/json') {
+      if (isJson) {
         rawText = rawText.replace(/```json\n?/g, '').replace(/```/g, '').trim();
         const parsed = JSON.parse(rawText);
 
@@ -241,8 +253,8 @@ export default async function handler(req, res) {
         return res.status(200).json({ text: rawText });
       }
     } catch (e) {
-      console.error('Error parsing response from Gemini:', e);
-      return res.status(500).json({ error: 'Failed to parse Gemini response' });
+      console.error('Error parsing response from OpenAI:', e);
+      return res.status(500).json({ error: 'Failed to parse OpenAI response' });
     }
   } catch (error) {
     console.error('API execution error:', error);
