@@ -90,10 +90,11 @@ export default async function handler(req, res) {
       }
 
       const ttsUrl = 'https://api.openai.com/v1/audio/speech';
+      const voice = req.body.voice || 'onyx';
       const ttsPayload = {
         model: 'tts-1',
         input: textToSpeak,
-        voice: 'onyx',
+        voice: voice,
         response_format: 'mp3'
       };
 

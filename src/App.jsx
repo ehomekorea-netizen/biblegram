@@ -267,17 +267,26 @@ async function generateMeditation(verse, userThought = "") {
   }
 }
 
+const extractReference = (text) => {
+  if (!text) return '';
+  const match = text.match(/\(([^)]+)\)\s*$/);
+  if (match) {
+    return match[1].trim();
+  }
+  return text.length < 15 ? text : '';
+};
+
 function generateVerseImage(visualTheme) {
   const theme = (visualTheme || 'light').toLowerCase().trim();
   const imagesForTheme = CURATED_HOLY_IMAGES[theme] || CURATED_HOLY_IMAGES.light;
   return imagesForTheme[Math.floor(Math.random() * imagesForTheme.length)];
 }
 
-async function generateVerseAudio(verse) {
+async function generateVerseAudio(verse, voice = 'onyx') {
   const response = await fetch('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'tts', text: verse })
+    body: JSON.stringify({ action: 'tts', text: verse, voice })
   });
   
   if (!response.ok) {
@@ -363,14 +372,17 @@ const FeedCard = ({
       nickname,
       onCommentCountChange,
       onDeleteCard,
-      userProfiles
+      userProfiles,
+      isGlobalMuted,
+      setIsGlobalMuted
     }) => {
 const [isPlaying, setIsPlaying] = useState(false);
   const [isMeditationOpen, setIsMeditationOpen] = useState(false);
   const [isThoughtOpen, setIsThoughtOpen] = useState(false);
   const [meditationText, setMeditationText] = useState(card.meditation || "");
   const [isLoadingMeditation, setIsLoadingMeditation] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  const isMuted = isGlobalMuted !== undefined ? isGlobalMuted : false;
+  const setIsMuted = setIsGlobalMuted !== undefined ? setIsGlobalMuted : () => {};
 const audioRef = useRef(null);
     const cardRef = useRef(null);
     const playCount = useRef(0);
@@ -1458,6 +1470,9 @@ const [user, setUser] = useState(() => {
     const [userProfiles, setUserProfiles] = useState({});
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isLargeFont, setIsLargeFont] = useState(() => localStorage.getItem('biblegram_large_font') === 'true');
+    const [selectedVoice, setSelectedVoice] = useState(() => localStorage.getItem('biblegram_selected_voice') || 'onyx');
+    const [isGlobalMuted, setIsGlobalMuted] = useState(() => localStorage.getItem('biblegram_global_muted') === 'true');
+    const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
     const [profileTab, setProfileTab] = useState('created');
     const [otherUserLikedCards, setOtherUserLikedCards] = useState([]);
     const [isFetchingOtherLikes, setIsFetchingOtherLikes] = useState(false);
@@ -1941,7 +1956,7 @@ const handleSearchVerse = async () => {
       const [visualAnalysis, meditationVal, audioUri] = await Promise.all([
         analyzeVerseForVisuals(verseText),
         generateMeditation(verseText, actualThought),
-        generateVerseAudio(verseText)
+        generateVerseAudio(verseText, selectedVoice)
       ]);
 
       const imageUri = generateVerseImage(visualAnalysis.visualTheme || 'light');
@@ -2338,6 +2353,8 @@ return (
                     onCommentCountChange={handleCommentCountChangeGlobal}
                     onDeleteCard={handleDeleteCard}
                     userProfiles={userProfiles}
+                    isGlobalMuted={isGlobalMuted}
+                    setIsGlobalMuted={setIsGlobalMuted}
                   />
                 ))}
               </div>
@@ -2464,6 +2481,8 @@ return (
                     onCommentCountChange={handleCommentCountChangeGlobal}
                     onDeleteCard={handleDeleteCard}
                     userProfiles={userProfiles}
+                    isGlobalMuted={isGlobalMuted}
+                    setIsGlobalMuted={setIsGlobalMuted}
                    />
                 </div>
                 {/* 프리뷰 위 정렬 버튼들 */}
@@ -2508,6 +2527,8 @@ return (
                     onCommentCountChange={handleCommentCountChangeGlobal}
                     onDeleteCard={handleDeleteCard}
                     userProfiles={userProfiles}
+                    isGlobalMuted={isGlobalMuted}
+                    setIsGlobalMuted={setIsGlobalMuted}
                   />
                 </div>
               </div>
@@ -2515,7 +2536,7 @@ return (
 
             {/* 6. 성소 보관 서재 프로필 뷰 (타인 조회 대응 완료) */}
             {view === 'profile' && (
-              <div className="flex-1 flex flex-col bg-[#050505] z-10 pb-[calc(96px+env(safe-area-inset-bottom))] overflow-y-auto hide-scrollbar relative">
+              <div className="flex-1 flex flex-col bg-[#050505] z-10 pb-[calc(72px+env(safe-area-inset-bottom))] overflow-y-auto hide-scrollbar relative">
                 
                 {/* 다른 유저의 프로필일 때 은혜광장(피드)으로 돌아가는 뒤로가기 버튼 */}
                 {activeProfileUser !== nickname && activeProfileUser !== "은혜나눔인" ? (
@@ -2618,27 +2639,35 @@ return (
                     </div>
                   ) : (
                     <div className="grid grid-cols-3 gap-2.5 animate-fade-in-up">
-                      {getProfileDisplayCards().map(card => (
-                        <div 
-                          key={card.id || card.text} 
-                          className="relative aspect-square bg-[#121212] cursor-pointer group overflow-hidden rounded-[20px] border border-white/5 transition-transform active:scale-95 shadow-md"
-                          onClick={() => { setSelectedCard(card); setView('detail'); }}
-                        >
-                          <img 
-                            src={card.image} 
-                            alt="thumb" 
-                            className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-500 group-hover:scale-105" 
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent opacity-70" />
-                          <div className="absolute bottom-2 left-2.5 text-[#DFBA73]/85 scale-85">
-                            <Icons.Music />
+                      {getProfileDisplayCards().map(card => {
+                        const reference = extractReference(card.text);
+                        return (
+                          <div 
+                            key={card.id || card.text} 
+                            className="relative aspect-square bg-[#121212] cursor-pointer group overflow-hidden rounded-[20px] border border-white/5 transition-transform active:scale-95 shadow-md"
+                            onClick={() => { setSelectedCard(card); setView('detail'); }}
+                          >
+                            <img 
+                              src={card.image} 
+                              alt="thumb" 
+                              className="w-full h-full object-cover opacity-40 group-hover:opacity-75 transition-opacity duration-500 group-hover:scale-105" 
+                            />
+                            {/* 성구 썸네일 가운데 한글 성경구절 강조 오버레이 */}
+                            <div className="absolute inset-0 bg-black/30 backdrop-blur-[0.5px] flex items-center justify-center p-2 text-center pointer-events-none">
+                              <span className="text-[#DFBA73] font-myeongjo font-bold text-[11.5px] leading-snug tracking-wide drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] bg-black/60 px-2 py-1 rounded-lg border border-[#DFBA73]/15">
+                                {reference || "묵상 말씀"}
+                              </span>
+                            </div>
+                            <div className="absolute bottom-2 left-2.5 text-[#DFBA73]/85 scale-85">
+                              <Icons.Music />
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
-                <p className="text-white/20 text-[11px] tracking-widest text-center pt-6 pb-8 font-sans">
+                <p className="text-white/20 text-[11px] tracking-widest text-center pt-6 pb-2.5 font-sans">
                   오디세이 묵상 하우스 &bull; ALL RIGHTS RESERVED
                 </p>
               </div>
@@ -2701,7 +2730,6 @@ return (
                       </div>
                       <div className="text-left">
                         <h3 className="text-[#DFBA73] font-myeongjo font-bold text-[16px] tracking-wide">설정</h3>
-                        <p className="text-white/40 text-[9px] tracking-tight">개인화된 성경 묵상 환경을 구성합니다.</p>
                       </div>
                     </div>
                     <button 
@@ -2715,6 +2743,39 @@ return (
                   {/* 설정 아이템 리스트 */}
                   <div className="flex flex-col gap-3.5 mt-2">
                     
+                    {/* 성경 낭독 목소리 설정 */}
+                    <div className="flex flex-col gap-2 bg-white/[0.02] border border-white/[0.04] p-4.5 rounded-2xl">
+                      <div className="flex flex-col gap-0.5 text-left">
+                        <span className="text-[13.5px] font-bold text-stone-200 font-sans">성경 낭독 목소리 설정</span>
+                        <span className="text-[9.5px] text-stone-500 font-sans leading-normal">말씀 카드 생성 시 적용되는 고품질 낭독 목소리입니다.</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 mt-1.5">
+                        {[
+                          { id: 'onyx', name: '하늘 깊은 남성음' },
+                          { id: 'echo', name: '따뜻한 은혜 남성음' },
+                          { id: 'alloy', name: '단정한 평온음' },
+                          { id: 'nova', name: '맑고 고운 여성음' }
+                        ].map((voiceOption) => (
+                          <button
+                            key={voiceOption.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedVoice(voiceOption.id);
+                              localStorage.setItem('biblegram_selected_voice', voiceOption.id);
+                              showToast(`낭독 목소리가 [${voiceOption.name}]으로 변경되었습니다.`, "success");
+                            }}
+                            className={`py-2.5 px-3 rounded-xl border text-[11.5px] font-bold transition-all active:scale-[0.98] ${
+                              selectedVoice === voiceOption.id
+                                ? 'bg-[#DFBA73]/10 border-[#DFBA73] text-[#DFBA73]'
+                                : 'bg-transparent border-white/5 text-stone-400 hover:text-stone-200'
+                            }`}
+                          >
+                            {voiceOption.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     {/* 로그인 정보 표시 */}
                     <div className="flex flex-col gap-1.5 bg-white/[0.02] border border-white/[0.04] p-4.5 rounded-2xl text-center">
                       <span className="text-[10px] text-stone-500 font-sans uppercase tracking-widest">현재 로그인 플랫폼</span>
@@ -2722,6 +2783,21 @@ return (
                         <span className="w-2 h-2 rounded-full bg-[#FEE500] animate-pulse shadow-[0_0_8px_rgba(254,229,0,0.6)]" />
                         <span className="text-[13.5px] font-extrabold text-[#FEE500] font-sans tracking-wide drop-shadow-sm">카카오 계정으로 연동됨</span>
                       </div>
+                    </div>
+
+                    {/* 앱 버전 및 업데이트 내역 */}
+                    <div className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] p-4.5 rounded-2xl">
+                      <div className="flex flex-col text-left">
+                        <span className="text-[10px] text-stone-500 font-sans uppercase tracking-widest">성소 소프트웨어 정보</span>
+                        <span className="text-[13.5px] font-bold text-stone-200 mt-1 font-sans">현재 버전: v1.4.0</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsUpdateModalOpen(true)}
+                        className="py-2 px-3.5 rounded-xl border border-[#DFBA73]/30 hover:border-[#DFBA73] bg-[#DFBA73]/5 hover:bg-[#DFBA73]/10 text-[#DFBA73] text-[11px] font-bold transition-all active:scale-[0.98]"
+                      >
+                        업데이트 내역
+                      </button>
                     </div>
 
                     {/* 로그아웃 버튼 */}
@@ -2737,6 +2813,65 @@ return (
                     </button>
                     
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* 9. 프리미엄 업데이트 내역 모달 */}
+            {isUpdateModalOpen && (
+              <div 
+                className="fixed inset-0 bg-black/85 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-fade-in pointer-events-auto"
+                onClick={() => setIsUpdateModalOpen(false)}
+              >
+                <div 
+                  className="bg-[#0c0a08] border border-[#DFBA73]/40 rounded-[28px] w-full max-w-[340px] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.95)] flex flex-col gap-5 animate-scale-up max-h-[80vh]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex justify-between items-center pb-3 border-b border-[#DFBA73]/20">
+                    <h3 className="text-[#DFBA73] font-myeongjo font-bold text-[16px] tracking-wide">업데이트 내역 (v1.4.0)</h3>
+                    <button 
+                      onClick={() => setIsUpdateModalOpen(false)}
+                      className="text-[#DFBA73]/60 hover:text-white transition-colors"
+                    >
+                      <Icons.Close />
+                    </button>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4.5 text-left text-[12.5px] text-stone-300 font-sans leading-relaxed max-h-[50vh] scrollbar-thin">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="px-1.5 py-0.5 rounded text-[9.5px] font-extrabold bg-[#DFBA73]/20 text-[#DFBA73] border border-[#DFBA73]/30">v1.4.0</span>
+                        <span className="text-[10px] text-stone-500 font-medium">2026.05.23</span>
+                      </div>
+                      <p className="font-bold text-stone-200 text-[13px] mb-1">성경 낭독 성음(TTS) 선택 & 편의성 대폭 개선</p>
+                      <ul className="list-disc list-inside pl-1 text-[11px] text-stone-400 flex flex-col gap-1">
+                        <li>OpenAI 최고 품질의 4가지 시그니처 낭독 목소리(onyx, echo, alloy, nova) 전용 설정 패널을 탑재하였습니다.</li>
+                        <li>내 서재의 말씀 카드 썸네일 중앙에 해당 성구의 한글 장절 참조(예: 창세기 1:1)를 표기하여 가독성을 높였습니다.</li>
+                        <li>은혜광장(피드) 내에서 음소거 버튼을 조작 시, 다음 스크롤 피드에서도 상태가 완벽하게 유지되는 글로벌 음소거 기능을 구축하였습니다.</li>
+                        <li>오디세이 묵상 하우스 카피라이터 레이아웃을 하단 섹션 위로 정돈하여 공간 효율을 강화하였습니다.</li>
+                      </ul>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="px-1.5 py-0.5 rounded text-[9.5px] font-extrabold bg-stone-800 text-stone-400 border border-stone-700">v1.3.0</span>
+                        <span className="text-[10px] text-stone-500 font-medium">2026.05.22</span>
+                      </div>
+                      <p className="font-bold text-stone-300 text-[13px] mb-1">큰글씨 고대비 고독자 편의모드 도입</p>
+                      <ul className="list-disc list-inside pl-1 text-[11px] text-stone-400 flex flex-col gap-0.5">
+                        <li>성전 및 성화 묵상글을 더욱 크고 또렷하게 읽으실 수 있는 세그먼트식 '기본' / '큰글씨' 텍스트 모드가 적용되었습니다.</li>
+                        <li>로그인 플랫폼 상태 표시를 카카오의 시그니처 톤(#FEE500)으로 업그레이드하였습니다.</li>
+                        <li>말씀 카드 융합 및 생성 시 로드 밸런싱 최적화를 진행하였습니다.</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setIsUpdateModalOpen(false)}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-[#DFBA73] to-[#C5A059] text-black font-extrabold text-[12.5px] tracking-wide active:scale-[0.98] transition-all"
+                  >
+                    은혜의 성소로 돌아가기
+                  </button>
                 </div>
               </div>
             )}
