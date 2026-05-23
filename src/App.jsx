@@ -410,7 +410,7 @@ const [isPlaying, setIsPlaying] = useState(false);
   const [isThoughtOpen, setIsThoughtOpen] = useState(false);
   const [meditationText, setMeditationText] = useState(card.meditation || "");
   const [isLoadingMeditation, setIsLoadingMeditation] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
 const audioRef = useRef(null);
     const cardRef = useRef(null);
     const playCount = useRef(0);
@@ -708,6 +708,50 @@ const handleAudioEnded = () => {
     }
   };
 
+  const speakWebSpeech = (forceUnmute = false) => {
+    const activeMuted = forceUnmute ? false : isMuted;
+    if (activeMuted) {
+      setIsPlaying(true);
+      return;
+    }
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(card.text);
+      utterance.lang = 'ko-KR';
+      utterance.rate = 0.9;
+      
+      const voices = window.speechSynthesis.getVoices();
+      const koVoice = voices.find(v => v.lang.startsWith('ko'));
+      if (koVoice) utterance.voice = koVoice;
+      
+      utterance.onstart = () => setIsPlaying(true);
+      utterance.onend = () => setIsPlaying(false);
+      utterance.onerror = () => setIsPlaying(false);
+      
+      window.speechSynthesis.speak(utterance);
+      setIsPlaying(true);
+    } catch (err) {
+      console.error("Web Speech failed:", err);
+      setIsPlaying(false);
+    }
+  };
+
+  const playAudio = () => {
+    const isLocalBlobFromDifferentSession = card.audio && card.audio.startsWith('blob:') && !card.audio.includes(window.location.host);
+    const useWebSpeech = !card.audio || card.audio === 'web-speech' || isLocalBlobFromDifferentSession;
+    
+    if (!useWebSpeech && audioRef.current) {
+      audioRef.current.play()
+        .then(() => setIsPlaying(true))
+        .catch((err) => {
+          console.warn("Audio play failed, falling back to Web Speech:", err);
+          speakWebSpeech();
+        });
+    } else {
+      speakWebSpeech();
+    }
+  };
+
   useEffect(() => {
     if (isPreview) {
       if (audioRef.current && card.audio) {
@@ -724,16 +768,11 @@ const handleAudioEnded = () => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             playCount.current = 0;
-            if (audioRef.current && card.audio) {
-              audioRef.current.play()
-                .then(() => setIsPlaying(true))
-                .catch(() => setIsPlaying(false));
-            } else {
-              setIsPlaying(true);
-            }
+            playAudio();
           } else {
             setIsPlaying(false);
             if (audioRef.current) audioRef.current.pause();
+            window.speechSynthesis.cancel();
           }
         });
       },
@@ -744,33 +783,50 @@ const handleAudioEnded = () => {
     if (currentCardRef) observer.observe(currentCardRef);
     return () => {
       if (currentCardRef) observer.unobserve(currentCardRef);
+      window.speechSynthesis.cancel();
     };
-  }, [isPreview, card.audio]);
-const togglePlay = () => {
-      if (isMeditationOpen || isThoughtOpen || isCommentsOpen) {
-        setIsMeditationOpen(false);
-        setIsThoughtOpen(false);
-        setIsCommentsOpen(false);
-        return;
-      }
-if (isPlaying) {
-      audioRef.current?.pause();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPreview, card.audio, isMuted]);
+
+  const togglePlay = () => {
+    if (isMeditationOpen || isThoughtOpen || isCommentsOpen) {
+      setIsMeditationOpen(false);
+      setIsThoughtOpen(false);
+      setIsCommentsOpen(false);
+      return;
+    }
+    if (isPlaying) {
+      if (audioRef.current) audioRef.current.pause();
+      window.speechSynthesis.cancel();
       setIsPlaying(false);
     } else {
-      if (audioRef.current && card.audio) {
-        audioRef.current.play().catch(() => {});
-      }
-      setIsPlaying(true);
+      playAudio();
     }
   };
 
   const toggleMute = (e) => {
     e.stopPropagation();
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
     if (audioRef.current) {
-      audioRef.current.muted = !isMuted;
-      setIsMuted(!isMuted);
-      onShowToast(!isMuted ? "음소거 되었습니다." : "낭독 성음이 활성화되었습니다.", "info");
+      audioRef.current.muted = nextMuted;
     }
+    
+    if (nextMuted) {
+      window.speechSynthesis.cancel();
+      if (audioRef.current) audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      if (audioRef.current && card.audio && card.audio !== 'web-speech' && !card.audio.startsWith('blob:')) {
+        audioRef.current.muted = false;
+        audioRef.current.play()
+          .then(() => setIsPlaying(true))
+          .catch(() => speakWebSpeech(false));
+      } else {
+        speakWebSpeech(true);
+      }
+    }
+    onShowToast(nextMuted ? "음소거 되었습니다." : "낭독 성음이 활성화되었습니다.", "info");
   };
 
   const handleProfileClick = (e) => {
@@ -830,6 +886,7 @@ if (isPlaying) {
           ref={audioRef} 
           src={card.audio} 
           onEnded={handleAudioEnded} 
+          muted={isMuted}
         />
       )}
 
@@ -1192,7 +1249,7 @@ className="flex flex-col items-center gap-1 text-white/90 hover:text-[#DFBA73] a
                   value={commentInput}
                   onChange={(e) => setCommentInput(e.target.value)}
                   placeholder={replyingTo ? `@${replyingTo.nickname}님에게 답글 남기기...` : "아멘, 혹은 은혜의 답글을 남겨주세요"}
-                  className="flex-1 bg-white/5 border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-[#DFBA73]/80 font-sans text-stone-100 placeholder:text-stone-600 text-xs transition-colors"
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-[#DFBA73]/80 font-sans text-stone-100 placeholder:text-stone-600 text-[16px] md:text-xs transition-colors"
                 />
                 <button 
                   type="submit"
@@ -1357,7 +1414,7 @@ const OnboardingView = ({ user, onCompleteOnboarding, onCancel }) => {
             value={inputVal}
             onChange={handleInputChange}
             placeholder="은혜로운 닉네임을 적어주세요"
-            className="w-full bg-[#12100e] border border-white/10 rounded-xl py-3.5 px-4 focus:outline-none focus:border-[#DFBA73]/80 font-sans text-stone-100 placeholder:text-stone-600 text-[14px] transition-colors shadow-inner text-center"
+            className="w-full bg-[#12100e] border border-white/10 rounded-xl py-3.5 px-4 focus:outline-none focus:border-[#DFBA73]/80 font-sans text-stone-100 placeholder:text-stone-600 text-[16px] md:text-[14px] transition-colors shadow-inner text-center"
             autoFocus
           />
           {errorMsg ? (
@@ -2067,7 +2124,7 @@ return (
                       value={verseRefInput}
                       onChange={(e) => setVerseRefInput(e.target.value)}
                       placeholder="예: 요한복음 3:16 또는 창세기 1:6~9"
-                      className="min-w-0 flex-1 bg-[#F4EFE6] border-b border-[#D8CFC0] rounded-t-xl py-2.5 px-4 focus:outline-none focus:border-[#A37B3F] font-myeongjo placeholder:text-[#C5B9AA] text-[14px] transition-colors"
+                      className="min-w-0 flex-1 bg-[#F4EFE6] border-b border-[#D8CFC0] rounded-t-xl py-2.5 px-4 focus:outline-none focus:border-[#A37B3F] font-myeongjo placeholder:text-[#C5B9AA] text-[16px] md:text-[14px] transition-colors"
                       onKeyDown={(e) => e.key === 'Enter' && handleSearchVerse()}
                     />
                     <button 
@@ -2087,7 +2144,7 @@ return (
                     value={verseText}
                     onChange={(e) => setVerseText(e.target.value)}
                     placeholder="위의 탐색 단추를 이용해 채워 넣거나, 가슴 속에 담아둔 말씀을 이곳에 직접 서술해 주세요..."
-                    className="w-full min-h-[90px] bg-white/80 border border-[#E8E1D5] rounded-2xl p-4 focus:outline-none focus:ring-1 focus:ring-[#A37B3F] resize-none font-myeongjo text-[14px] leading-[1.8] tracking-[0.02em] shadow-[inset_0_2px_10px_rgba(0,0,0,0.03)]"
+                    className="w-full min-h-[90px] bg-white/80 border border-[#E8E1D5] rounded-2xl p-4 focus:outline-none focus:ring-1 focus:ring-[#A37B3F] resize-none font-myeongjo text-[16px] md:text-[14px] leading-[1.8] tracking-[0.02em] shadow-[inset_0_2px_10px_rgba(0,0,0,0.03)]"
                   />
                 </div>
 
@@ -2113,7 +2170,7 @@ return (
                       value={userThought}
                       onChange={(e) => setUserThought(e.target.value)}
                       placeholder="오늘 내가 마주한 상황, 주님 앞에 뉘우치는 고백, 혹은 간절한 기도의 실상을 적어주세요."
-                      className="w-full min-h-[90px] bg-white/85 border border-[#E8E1D5] rounded-2xl p-4 focus:outline-none focus:ring-1 focus:ring-[#A37B3F] resize-none font-sans text-[13px] leading-[1.6] placeholder:text-stone-400 shadow-sm animate-fade-in-up"
+                      className="w-full min-h-[90px] bg-white/85 border border-[#E8E1D5] rounded-2xl p-4 focus:outline-none focus:ring-1 focus:ring-[#A37B3F] resize-none font-sans text-[16px] md:text-[13px] leading-[1.6] placeholder:text-stone-400 shadow-sm animate-fade-in-up"
                     />
                   )}
                 </div>
