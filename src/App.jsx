@@ -371,6 +371,7 @@ const FeedCard = ({
       user,
       nickname,
       onCommentCountChange,
+      onShareCountChange,
       onDeleteCard,
       userProfiles,
       isGlobalMuted,
@@ -399,6 +400,12 @@ const audioRef = useRef(null);
     if (card.commentCount !== prevCommentCount) {
       setCommentsCount(card.commentCount || 0);
       setPrevCommentCount(card.commentCount || 0);
+    }
+    const [sharesCount, setSharesCount] = useState(card.shareCount || 0);
+    const [prevShareCount, setPrevShareCount] = useState(card.shareCount || 0);
+    if (card.shareCount !== prevShareCount) {
+      setSharesCount(card.shareCount || 0);
+      setPrevShareCount(card.shareCount || 0);
     }
     const [replyingTo, setReplyingTo] = useState(null);
     const commentInputRef = useRef(null);
@@ -566,6 +573,59 @@ const handleLike = (e) => {
       handleCopy(e);
     }
   };
+
+  const handleShareClick = async (e) => {
+    e.stopPropagation();
+    
+    // 기기 공유 UI 트리거
+    handleDeviceShare(e);
+
+    // 로그인된 사용자에 한해 1인 1회 카운팅
+    if (!user) return;
+    
+    const localSharedKey = `biblegram_shared_${card.id}_${user.id}`;
+    const alreadySharedLocal = localStorage.getItem(localSharedKey) === 'true';
+    if (alreadySharedLocal) return;
+
+    try {
+      // 1. 이미 DB에 공유 정보(__BIBLEGRAM_SHARE_ACTION__)가 있는지 검색
+      const { data: existingShare, error: checkError } = await supabase
+        .from('comments')
+        .select('id')
+        .eq('card_id', card.id)
+        .eq('user_id', user.id)
+        .eq('comment_text', '__BIBLEGRAM_SHARE_ACTION__')
+        .limit(1);
+
+      if (checkError) throw checkError;
+
+      if (existingShare && existingShare.length > 0) {
+        localStorage.setItem(localSharedKey, 'true');
+        return;
+      }
+
+      // 2. DB에 공유 카운트용 특별 댓글 삽입
+      const { error: insertError } = await supabase
+        .from('comments')
+        .insert({
+          card_id: card.id,
+          user_id: user.id,
+          author_nickname: nickname || '은혜나눔인',
+          comment_text: '__BIBLEGRAM_SHARE_ACTION__'
+        });
+
+      if (insertError) throw insertError;
+
+      // 3. 로컬 및 전역 상태 동기화 및 캐싱
+      const nextVal = sharesCount + 1;
+      setSharesCount(nextVal);
+      localStorage.setItem(localSharedKey, 'true');
+      if (onShareCountChange) onShareCountChange(card.id, nextVal);
+    } catch (err) {
+      console.error("Error updating share count:", err);
+    }
+  };
+
 const handleOpenMeditation = (e) => {
       e.stopPropagation();
       setIsMeditationOpen(true);
@@ -594,7 +654,8 @@ const handleOpenMeditation = (e) => {
           .order('created_at', { ascending: true });
         
         if (error) throw error;
-        setComments(data || []);
+        const filteredComments = (data || []).filter(c => c.comment_text !== '__BIBLEGRAM_SHARE_ACTION__');
+        setComments(filteredComments);
       } catch (err) {
         console.error("Error fetching comments:", err);
       } finally {
@@ -956,25 +1017,24 @@ const handleAudioEnded = () => {
                 <span className="text-[10px] text-white/80 font-medium tracking-tight">{commentsCount}</span>
               </button>
   
+                            <button 
+                onClick={handleShareClick}
+                className="flex flex-col items-center gap-1 text-white/90 hover:text-[#DFBA73] active:scale-90 transition-all"
+              >
+                <div className="w-11 h-11 rounded-full bg-black/40 border border-white/10 backdrop-blur-md flex items-center justify-center shadow-lg hover:border-[#DFBA73]/40">
+                  <Icons.Share />
+                </div>
+                <span className="text-[10px] text-white/80 font-medium tracking-tight">{sharesCount}</span>
+              </button>
+
               <button 
                 onClick={(e) => { e.stopPropagation(); onToggleSave(card); }}
-className="flex flex-col items-center gap-1 text-white/90 hover:text-[#DFBA73] active:scale-90 transition-all"
-            >
-              <div className="w-11 h-11 rounded-full bg-black/40 border border-white/10 backdrop-blur-md flex items-center justify-center shadow-lg hover:border-[#DFBA73]/40">
-                <Icons.Bookmark filled={isSaved} />
-              </div>
-              <span className="text-[10px] text-white/80 font-medium tracking-tight">보관</span>
-            </button>
-
-            <button 
-              onClick={handleDeviceShare}
-              className="flex flex-col items-center gap-1 text-white/90 hover:text-[#DFBA73] active:scale-90 transition-all"
-            >
-              <div className="w-11 h-11 rounded-full bg-black/40 border border-white/10 backdrop-blur-md flex items-center justify-center shadow-lg hover:border-[#DFBA73]/40">
-                <Icons.Share />
-              </div>
-              <span className="text-[10px] text-white/80 font-medium tracking-tight">공유</span>
-            </button>
+                className="flex flex-col items-center gap-1 text-white/90 hover:text-[#DFBA73] active:scale-90 transition-all"
+              >
+                <div className="w-11 h-11 rounded-full bg-black/40 border border-white/10 backdrop-blur-md flex items-center justify-center shadow-lg hover:border-[#DFBA73]/40">
+                  <Icons.Bookmark filled={isSaved} />
+                </div>
+              </button>
             
             <div className="relative mt-2 w-[42px] h-[42px]">
               {isPlaying && (
@@ -1474,6 +1534,55 @@ const [user, setUser] = useState(() => {
     const [isGlobalMuted, setIsGlobalMuted] = useState(() => localStorage.getItem('biblegram_global_muted') === 'true');
     const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
     const [profileTab, setProfileTab] = useState('created');
+
+    const [pullDistance, setPullDistance] = useState(0);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const touchStartY = useRef(0);
+    const isPulling = useRef(false);
+
+    const handleTouchStart = (e) => {
+      const container = e.currentTarget;
+      if (container.scrollTop === 0 && !isRefreshing) {
+        touchStartY.current = e.touches[0].clientY;
+        isPulling.current = true;
+      } else {
+        isPulling.current = false;
+      }
+    };
+
+    const handleTouchMove = (e) => {
+      if (!isPulling.current || isRefreshing) return;
+      const currentY = e.touches[0].clientY;
+      const deltaY = currentY - touchStartY.current;
+      
+      if (deltaY > 0) {
+        const distance = Math.min(80, deltaY * 0.45);
+        setPullDistance(distance);
+        if (e.cancelable) e.preventDefault();
+      }
+    };
+
+    const handleTouchEnd = async () => {
+      if (!isPulling.current || isRefreshing) return;
+      isPulling.current = false;
+      
+      if (pullDistance >= 50) {
+        setIsRefreshing(true);
+        setPullDistance(35);
+        try {
+          await fetchFeed();
+          showToast("신비로운 오늘의 말씀 광장이 새로워졌습니다.", "success");
+        } catch (err) {
+          console.error("Refresh feed failed:", err);
+        } finally {
+          setIsRefreshing(false);
+          setPullDistance(0);
+        }
+      } else {
+        setPullDistance(0);
+      }
+    };
+
     const [otherUserLikedCards, setOtherUserLikedCards] = useState([]);
     const [isFetchingOtherLikes, setIsFetchingOtherLikes] = useState(false);
 const [verseRefInput, setVerseRefInput] = useState('');
@@ -1529,42 +1638,49 @@ const [verseRefInput, setVerseRefInput] = useState('');
           author_id,
           likes_count,
           created_at,
-          comments (id)
+          comments (id, comment_text, user_id)
         `)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
       
-      const mapped = (data || []).map(item => ({
-        id: item.id,
-        text: item.verse_text,
-        image: item.image_url,
-        audio: item.audio_url || 'web-speech',
-        meditation: item.meditation,
-        userThought: item.user_thought,
-        author: item.author_nickname,
-        author_id: item.author_id,
-        likes: item.likes_count,
-        commentCount: item.comments ? item.comments.length : 0,
-        created_at: item.created_at
-      }));
+      const mapped = (data || []).map(item => {
+        const commentsList = item.comments || [];
+        const normalComments = commentsList.filter(c => c.comment_text !== '__BIBLEGRAM_SHARE_ACTION__');
+        const shareComments = commentsList.filter(c => c.comment_text === '__BIBLEGRAM_SHARE_ACTION__');
+        
+        return {
+          id: item.id,
+          text: item.verse_text,
+          image: item.image_url,
+          audio: item.audio_url || 'web-speech',
+          meditation: item.meditation,
+          userThought: item.user_thought,
+          author: item.author_nickname,
+          author_id: item.author_id,
+          likes: item.likes_count,
+          commentCount: normalComments.length,
+          shareCount: shareComments.length,
+          created_at: item.created_at
+        };
+      });
       
-      // 지능형 은혜 로테이션 알고리즘 적용 (100명 이용 시 쇼츠식 다양성 확보)
-      const sorted = mapped.sort((a, b) => {
-        // 1순위: 로그인 유저 본인이 작성한 카드는 최상단에 고정 피드백 제공
-        const aMine = user && String(a.author_id) === String(user.id) ? 1 : 0;
-        const bMine = user && String(b.author_id) === String(user.id) ? 1 : 0;
-        if (aMine !== bMine) return bMine - aMine;
+      // 내 게시물 피드 숨김 및 상대 게시물만 노출 (Q2)
+      const filtered = user 
+        ? mapped.filter(item => String(item.author_id) !== String(user.id))
+        : mapped;
 
-        // 2순위: 쇼츠 스타일 지능형 발견 점수 (공감 가중치 + 시간 감쇄 점수 + 무작위 셔플 보너스)
+      // 지능형 은혜 로테이션 알고리즘 (Q1 - 난수 범위 넓혀 무작위 셔플 노출 극대화)
+      const sorted = filtered.sort((a, b) => {
         const aDays = (Date.now() - new Date(a.created_at).getTime()) / (1000 * 60 * 60 * 24);
         const bDays = (Date.now() - new Date(b.created_at).getTime()) / (1000 * 60 * 60 * 24);
         
         const aRecency = Math.max(0, 30 / (aDays + 0.5));
         const bRecency = Math.max(0, 30 / (bDays + 0.5));
         
-        const aScore = (a.likes || 0) * 10 + aRecency + Math.random() * 15;
-        const bScore = (b.likes || 0) * 10 + bRecency + Math.random() * 15;
+        // 난수 편차를 45로 확대해 특정인 편중 없는 조화로운 랜덤화 피드 달성
+        const aScore = (a.likes || 0) * 10 + aRecency + Math.random() * 45;
+        const bScore = (b.likes || 0) * 10 + bRecency + Math.random() * 45;
         return bScore - aScore;
       });
       
@@ -1593,7 +1709,7 @@ const [verseRefInput, setVerseRefInput] = useState('');
             author_nickname,
             author_id,
             likes_count,
-            comments (id)
+            comments (id, comment_text, user_id)
           )
         `)
         .eq('user_id', checkUser.id);
@@ -1602,18 +1718,25 @@ const [verseRefInput, setVerseRefInput] = useState('');
       
       const mapped = (data || [])
         .filter(item => item.cards)
-        .map(item => ({
-          id: item.cards.id,
-          text: item.cards.verse_text,
-          image: item.cards.image_url,
-          audio: item.cards.audio_url || 'web-speech',
-          meditation: item.cards.meditation,
-          userThought: item.cards.user_thought,
-          author: item.cards.author_nickname,
-          author_id: item.cards.author_id,
-          likes: item.cards.likes_count,
-          commentCount: item.cards.comments ? item.cards.comments.length : 0
-        }));
+        .map(item => {
+          const commentsList = item.cards.comments || [];
+          const normalComments = commentsList.filter(c => c.comment_text !== '__BIBLEGRAM_SHARE_ACTION__');
+          const shareComments = commentsList.filter(c => c.comment_text === '__BIBLEGRAM_SHARE_ACTION__');
+
+          return {
+            id: item.cards.id,
+            text: item.cards.verse_text,
+            image: item.cards.image_url,
+            audio: item.cards.audio_url || 'web-speech',
+            meditation: item.cards.meditation,
+            userThought: item.cards.user_thought,
+            author: item.cards.author_nickname,
+            author_id: item.cards.author_id,
+            likes: item.cards.likes_count,
+            commentCount: normalComments.length,
+            shareCount: shareComments.length
+          };
+        });
       
       setSavedCards(mapped);
     } catch (err) {
@@ -1893,6 +2016,14 @@ const handleToggleLikeGlobal = async (cardId) => {
       setSavedCards(prev => prev.map(c => c.id === cardId ? { ...c, commentCount: newCount } : c));
       if (selectedCard && selectedCard.id === cardId) {
         setSelectedCard(prev => ({ ...prev, commentCount: newCount }));
+      }
+    };
+
+    const handleShareCountChangeGlobal = (cardId, newCount) => {
+      setFeedCards(prev => prev.map(c => c.id === cardId ? { ...c, shareCount: newCount } : c));
+      setSavedCards(prev => prev.map(c => c.id === cardId ? { ...c, shareCount: newCount } : c));
+      if (selectedCard && selectedCard.id === cardId) {
+        setSelectedCard(prev => ({ ...prev, shareCount: newCount }));
       }
     };
 
@@ -2337,7 +2468,31 @@ return (
 
             {/* 1. 피드 뷰 영역 */}
             {view === 'feed' && (
-              <div className="flex-1 overflow-y-auto snap-y snap-mandatory hide-scrollbar bg-black relative">
+              <div 
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                className="flex-1 overflow-y-auto snap-y snap-mandatory hide-scrollbar bg-black relative"
+              >
+                {/* 인스타 스타일 당겨서 새로고침 골드 스피너 */}
+                {(pullDistance > 0 || isRefreshing) && (
+                  <div 
+                    className="absolute top-0 left-0 right-0 z-50 flex items-center justify-center pointer-events-none transition-all duration-150"
+                    style={{ 
+                      height: `${pullDistance}px`, 
+                      opacity: Math.min(1, pullDistance / 40),
+                      transform: `translateY(${Math.max(-20, pullDistance - 40)}px)`
+                    }}
+                  >
+                    <div className="flex flex-col items-center justify-center gap-1.5 pt-4">
+                      <div className={`w-6 h-6 rounded-full border-2 border-[#DFBA73]/20 border-t-[#DFBA73] ${isRefreshing ? 'animate-spin' : ''}`} />
+                      {pullDistance >= 50 && !isRefreshing && (
+                        <span className="text-[7.5px] font-sans text-[#DFBA73] tracking-[0.2em] uppercase font-bold">놓아서 새로고침</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {feedCards.map((card) => (
                   <FeedCard 
                     key={card.id} 
@@ -2351,6 +2506,7 @@ return (
                     user={user}
                     nickname={nickname}
                     onCommentCountChange={handleCommentCountChangeGlobal}
+                    onShareCountChange={handleShareCountChangeGlobal}
                     onDeleteCard={handleDeleteCard}
                     userProfiles={userProfiles}
                     isGlobalMuted={isGlobalMuted}
@@ -2479,6 +2635,7 @@ return (
                     user={user}
                     nickname={nickname}
                     onCommentCountChange={handleCommentCountChangeGlobal}
+                    onShareCountChange={handleShareCountChangeGlobal}
                     onDeleteCard={handleDeleteCard}
                     userProfiles={userProfiles}
                     isGlobalMuted={isGlobalMuted}
@@ -2525,6 +2682,7 @@ return (
                     user={user}
                     nickname={nickname}
                     onCommentCountChange={handleCommentCountChangeGlobal}
+                    onShareCountChange={handleShareCountChangeGlobal}
                     onDeleteCard={handleDeleteCard}
                     userProfiles={userProfiles}
                     isGlobalMuted={isGlobalMuted}
