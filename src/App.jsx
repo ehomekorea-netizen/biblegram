@@ -2553,10 +2553,10 @@ return (
                     </div>
                   </div>
                   
-                  <h1 className="text-sm font-bold text-[#F9F7F1] tracking-wide font-sans">
+                  <h1 className="text-[16px] font-bold text-[#F9F7F1] tracking-wide font-sans">
                     {activeProfileUser === "은혜나눔인" ? "오띵" : activeMeta.name}
                   </h1>
-                  <p className="text-[#DFBA73]/85 text-[10px] mt-1 font-myeongjo tracking-[0.03em] px-6 break-keep leading-relaxed max-w-[280px]">
+                  <p className="text-[#DFBA73]/85 text-[12px] mt-1 font-myeongjo tracking-[0.03em] px-6 break-keep leading-relaxed max-w-[280px]">
                     {activeMeta.desc}
                   </p>
                   
@@ -2570,13 +2570,13 @@ return (
                           : 'bg-transparent border-transparent text-white/50 hover:text-white/80'
                       }`}
                     >
-                      <div className="text-[13px] font-extrabold tracking-wide">
+                      <div className="text-[14px] font-extrabold tracking-wide">
                         {activeProfileUser === nickname || activeProfileUser === "은혜나눔인" 
                           ? savedCards.length 
                           : feedCards.filter(c => c.author === activeProfileUser).length
                         }
                       </div>
-                      <div className="text-[8.5px] font-medium mt-0.5">작성/보관 성구</div>
+                      <div className="text-[10px] font-medium mt-0.5">작성/보관 성구</div>
                     </button>
                     <button 
                       type="button"
@@ -2587,20 +2587,20 @@ return (
                           : 'bg-transparent border-transparent text-white/50 hover:text-white/80'
                       }`}
                     >
-                      <div className="text-[13px] font-extrabold tracking-wide">
+                      <div className="text-[14px] font-extrabold tracking-wide">
                         {activeProfileUser === nickname || activeProfileUser === "은혜나눔인" 
                           ? getLikedCardsOfOthers().length 
                           : otherUserLikedCards.length
                         }
                       </div>
-                      <div className="text-[8.5px] font-medium mt-0.5">공감 은혜</div>
+                      <div className="text-[10px] font-medium mt-0.5">공감 은혜</div>
                     </button>
                   </div>
                 </div>
                 
                 {/* 서재 내부 그리드 표현 */}
                 <div className="px-4 py-2.5 flex-1">
-                  <h2 className="text-[10px] text-[#DFBA73]/80 font-bold tracking-widest uppercase font-myeongjo mb-2.5 pl-1">
+                  <h2 className="text-[13px] text-[#DFBA73]/80 font-bold tracking-widest uppercase font-myeongjo mb-2.5 pl-1">
                     {profileTab === 'created' 
                       ? (activeProfileUser === nickname || activeProfileUser === "은혜나눔인" ? "소장한 말씀 카드" : `${activeProfileUser} 님의 묵상 기록`)
                       : (activeProfileUser === nickname || activeProfileUser === "은혜나눔인" ? "공감하고 기뻐한 말씀" : `${activeProfileUser} 님이 공감한 은혜`)
@@ -2609,7 +2609,7 @@ return (
                   
                   {getProfileDisplayCards().length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 px-6 text-center border border-dashed border-white/5 rounded-2xl bg-white/[0.01]">
-                      <p className="text-white/30 text-[11px] font-myeongjo leading-relaxed whitespace-pre-line">
+                      <p className="text-white/30 text-[14px] font-myeongjo leading-relaxed whitespace-pre-line">
                         {profileTab === 'created' 
                           ? "기록된 묵상 말씀이 없습니다.\n새로운 말씀 카드를 창조해 보세요." 
                           : "아직 다른 피드에 공감(좋아요)한 말씀이 없습니다.\n은혜광장에서 다른 성도의 말씀에 공감을 나누어 보세요."
@@ -2638,7 +2638,7 @@ return (
                     </div>
                   )}
                 </div>
-                <p className="text-white/20 text-[7.5px] tracking-widest text-center pt-6 pb-8 font-sans">
+                <p className="text-white/20 text-[11px] tracking-widest text-center pt-6 pb-8 font-sans">
                   오디세이 묵상 하우스 &bull; ALL RIGHTS RESERVED
                 </p>
               </div>
