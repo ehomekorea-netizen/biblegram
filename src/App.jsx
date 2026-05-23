@@ -276,6 +276,31 @@ const extractReference = (text) => {
   return text.length < 15 ? text : '';
 };
 
+const isValidBibleReference = (input) => {
+  if (!input) return { valid: false, reason: "장절 주소를 입력하세요 (예: 요한복음 3:16)" };
+  const trimmed = input.trim();
+  
+  // 1. Blacklist check (욕설 및 프롬프트 인젝션 방어)
+  const blacklist = [
+    '시발', '씨발', '병신', '섹스', '존나', '개새끼', '미친', '지랄', '엠창', '바보', '멍청이', 
+    '쓰레기', '좆', '닥쳐', '새끼', 'ignore', 'instruction', 'system', 'override', 'prompt'
+  ];
+  for (const word of blacklist) {
+    if (trimmed.toLowerCase().includes(word)) {
+      return { valid: false, reason: "주님의 성소에는 경건하고 바른 표현만 사용해 주세요." };
+    }
+  }
+
+  // 2. Korean & English Bible Reference Regex
+  const bibleRegex = /^\s*(창세기|창|출애굽기|출|레위기|레|민수기|민|신명기|신|여호수아|여호|수|사사기|사사|삿|룻기|룻|사무엘\s*상|삼상|사무엘\s*하|삼하|열왕기\s*상|왕상|열왕기\s*하|왕하|역대기\s*상|대상|역대기\s*하|대하|에스라|스|느헤미야|느|에스더|에|욥기|욥|시편|시|잠언|잠|전도서|전|아가|아|이사야|사|예레미야|렘|예레미야\s*애가|애|렘애|에스겔|겔|다니엘|단|호세아|호|요엘|욜|아모스|암|오바댜|옵|요나|욘|미가|미|나훔|나|하박국|합|스바냐|습|학개|학|스가랴|슥|말라기|말|마태복음|마태|마|마가복음|마가|막|누가복음|누가|누|요한복음|요한|요|사도행전|행|로마서|롬|고린도\s*전서|고전|고린도\s*후서|고후|갈라디아서|갈|에베소서|엡|빌립보서|빌|골로새서|골|데살로니가\s*전서|살전|데살로니가\s*후서|살후|디모데\s*전서|딤전|디모데\s*후서|딤후|디도서|딛|빌레몬서|몬|히브리서|히|야고보서|야|베드로\s*전서|벧전|베드로\s*후서|벧후|요한\s*일서|요일|요한\s*이서|요이|요한\s*삼서|요삼|유다서|유|요한계시록|계시록|계|Genesis|Gen|Exodus|Ex|Leviticus|Lev|Numbers|Num|Deuteronomy|Deut|Joshua|Josh|Judges|Judg|Ruth|1\s*Samuel|1\s*Sam|2\s*Samuel|2\s*Sam|1\s*Kings|1\s*Kings|2\s*Kings|2\s*Kings|1\s*Chronicles|1\s*Chr|2\s*Chronicles|2\s*Chr|Ezra|Nehemiah|Neh|Esther|Esth|Job|Psalms|Ps|Psalm|Proverbs|Prov|Ecclesiastes|Eccles|Song\s*of\s*Songs|Song|Isaiah|Isa|Jeremiah|Jer|Lamentations|Lam|Ezekiel|Ezek|Daniel|Dan|Hosea|Hos|Joel|Amos|Obadiah|Obad|Jonah|Micah|Mic|Nahum|Nah|Habakkuk|Hab|Zephaniah|Zeph|Haggai|Hag|Zechariah|Zech|Malachi|Mal|Matthew|Matt|Mark|Luke|John|Acts|Romans|Rom|1\s*Corinthians|1\s*Cor|2\s*Corinthians|2\s*Cor|Galatians|Gal|Ephesians|Eph|Philippians|Phil|Colossians|Col|1\s*Thessalonians|1\s*Thess|2\s*Thessalonians|2\s*Thess|1\s*Timothy|1\s*Tim|2\s*Timothy|2\s*Tim|Titus|Philemon|Philem|Hebrews|Heb|James|Jas|1\s*Peter|1\s*Pet|2\s*Peter|2\s*Pet|1\s*John|1\s*Jn|2\s*John|2\s*Jn|3\s*John|3\s*Jn|Jude|Revelation|Rev)\s*\d+\s*([:장\s]\s*\d+\s*절?)?(-\d+)?\s*$/i;
+
+  if (!bibleRegex.test(trimmed)) {
+    return { valid: false, reason: "주님의 성소에는 경건하고 바른 성경 장절 형식만 기입해 주세요. (예: 요한복음 3:16)" };
+  }
+  
+  return { valid: true };
+};
+
 function generateVerseImage(visualTheme) {
   const theme = (visualTheme || 'light').toLowerCase().trim();
   const imagesForTheme = CURATED_HOLY_IMAGES[theme] || CURATED_HOLY_IMAGES.light;
@@ -1583,8 +1608,8 @@ const [user, setUser] = useState(() => {
       }
     };
 
-    const [otherUserLikedCards, setOtherUserLikedCards] = useState([]);
-    const [isFetchingOtherLikes, setIsFetchingOtherLikes] = useState(false);
+    const [otherUserSavedCards, setOtherUserSavedCards] = useState([]);
+    const [isFetchingOtherSaved, setIsFetchingOtherSaved] = useState(false);
 const [verseRefInput, setVerseRefInput] = useState('');
   const [verseText, setVerseText] = useState('');
   
@@ -2061,6 +2086,11 @@ const handleSearchVerse = async () => {
       showToast("장절 주소를 입력하세요 (예: 요한복음 3:16)", "info");
       return;
     }
+    const guard = isValidBibleReference(verseRefInput);
+    if (!guard.valid) {
+      showToast(guard.reason, "error");
+      return;
+    }
     setIsSearching(true);
     try {
       const text = await fetchBibleTextFromAI(verseRefInput);
@@ -2172,19 +2202,15 @@ const getGreetingMessage = () => {
     if (hour >= 12 && hour < 18) return "분주한 일상을 내려놓고 말씀이 머무는 성소로 나아오세요";
     return "고요하고 평화로운 밤, 구주의 보혈 같은 따뜻함 속에 깃들 시간입니다";
   };
-  const getLikedCardsOfOthers = () => {
+  const getSavedCardsOfOthers = () => {
     if (!user) return [];
-    return feedCards.filter(card => {
-      const isLiked = likedCardsState[card.id] === true;
-      const isNotOwn = card.author_id !== user.id && card.author !== nickname && card.author !== "은혜나눔인";
-      return isLiked && isNotOwn;
-    });
+    return savedCards.filter(c => c.author_id !== user.id);
   };
 
   const getCreatedCards = () => {
     const isOwnProfile = activeProfileUser === nickname || activeProfileUser === "은혜나눔인";
     if (isOwnProfile) {
-      return savedCards;
+      return savedCards.filter(c => c.author_id === user?.id);
     } else {
       return feedCards.filter(c => c.author === activeProfileUser);
     }
@@ -2195,29 +2221,29 @@ const getGreetingMessage = () => {
     if (profileTab === 'created') {
       return getCreatedCards();
     } else {
-      return isOwnProfile ? getLikedCardsOfOthers() : otherUserLikedCards;
+      return isOwnProfile ? getSavedCardsOfOthers() : otherUserSavedCards;
     }
   };
 
   useEffect(() => {
     setProfileTab('created');
-    const fetchOtherUserLikes = async () => {
+    const fetchOtherUserSaved = async () => {
       if (!activeProfileUser || activeProfileUser === nickname || activeProfileUser === "은혜나눔인" || activeProfileUser === "나의 서재") {
-        setOtherUserLikedCards([]);
+        setOtherUserSavedCards([]);
         return;
       }
-      setIsFetchingOtherLikes(true);
+      setIsFetchingOtherSaved(true);
       try {
         const matchingCard = feedCards.find(c => c.author === activeProfileUser);
         if (!matchingCard || !matchingCard.author_id) {
-          setOtherUserLikedCards([]);
-          setIsFetchingOtherLikes(false);
+          setOtherUserSavedCards([]);
+          setIsFetchingOtherSaved(false);
           return;
         }
         const targetUserId = matchingCard.author_id;
 
         const { data, error } = await supabase
-          .from('likes')
+          .from('bookmarks')
           .select(`
             card_id,
             cards (
@@ -2254,18 +2280,18 @@ const getGreetingMessage = () => {
             }))
             .filter(c => c.author_id !== targetUserId);
           
-          setOtherUserLikedCards(mapped);
+          setOtherUserSavedCards(mapped);
         } else {
-          setOtherUserLikedCards([]);
+          setOtherUserSavedCards([]);
         }
       } catch (err) {
-        console.error("Error fetching other user likes:", err);
-        setOtherUserLikedCards([]);
+        console.error("Error fetching other user saved cards:", err);
+        setOtherUserSavedCards([]);
       } finally {
-        setIsFetchingOtherLikes(false);
+        setIsFetchingOtherSaved(false);
       }
     };
-    fetchOtherUserLikes();
+    fetchOtherUserSaved();
   }, [activeProfileUser, nickname, feedCards]);
   
     const activeMeta = USER_PROFILES_META[activeProfileUser] || { 
@@ -2751,11 +2777,11 @@ return (
                     >
                       <div className="text-[14px] font-extrabold tracking-wide">
                         {activeProfileUser === nickname || activeProfileUser === "은혜나눔인" 
-                          ? savedCards.length 
+                          ? savedCards.filter(c => c.author_id === user?.id).length 
                           : feedCards.filter(c => c.author === activeProfileUser).length
                         }
                       </div>
-                      <div className="text-[10px] font-medium mt-0.5">작성/보관 성구</div>
+                      <div className="text-[10px] font-medium mt-0.5">내가 빚은 말씀</div>
                     </button>
                     <button 
                       type="button"
@@ -2768,11 +2794,11 @@ return (
                     >
                       <div className="text-[14px] font-extrabold tracking-wide">
                         {activeProfileUser === nickname || activeProfileUser === "은혜나눔인" 
-                          ? getLikedCardsOfOthers().length 
-                          : otherUserLikedCards.length
+                          ? savedCards.filter(c => c.author_id !== user?.id).length 
+                          : otherUserSavedCards.length
                         }
                       </div>
-                      <div className="text-[10px] font-medium mt-0.5">공감 은혜</div>
+                      <div className="text-[10px] font-medium mt-0.5">소장한 은혜 말씀</div>
                     </button>
                   </div>
                 </div>
@@ -2781,8 +2807,8 @@ return (
                 <div className="px-4 py-2.5 flex-1">
                   <h2 className="text-[13px] text-[#DFBA73]/80 font-bold tracking-widest uppercase font-myeongjo mb-2.5 pl-1">
                     {profileTab === 'created' 
-                      ? (activeProfileUser === nickname || activeProfileUser === "은혜나눔인" ? "소장한 말씀 카드" : `${activeProfileUser} 님의 묵상 기록`)
-                      : (activeProfileUser === nickname || activeProfileUser === "은혜나눔인" ? "공감하고 기뻐한 말씀" : `${activeProfileUser} 님이 공감한 은혜`)
+                      ? (activeProfileUser === nickname || activeProfileUser === "은혜나눔인" ? "내가 빚은 말씀 카드" : `${activeProfileUser} 님의 묵상 기록`)
+                      : (activeProfileUser === nickname || activeProfileUser === "은혜나눔인" ? "소장한 말씀 카드" : `${activeProfileUser} 님이 소장한 은혜`)
                     }
                   </h2>
                   
@@ -2790,8 +2816,8 @@ return (
                     <div className="flex flex-col items-center justify-center py-12 px-6 text-center border border-dashed border-white/5 rounded-2xl bg-white/[0.01]">
                       <p className="text-white/30 text-[14px] font-myeongjo leading-relaxed whitespace-pre-line">
                         {profileTab === 'created' 
-                          ? "기록된 묵상 말씀이 없습니다.\n새로운 말씀 카드를 창조해 보세요." 
-                          : "아직 다른 피드에 공감(좋아요)한 말씀이 없습니다.\n은혜광장에서 다른 성도의 말씀에 공감을 나누어 보세요."
+                          ? "기록된 말씀 카드가 없습니다.\n새로운 말씀 카드를 창조해 보세요." 
+                          : "소장한 말씀 카드가 없습니다.\n은혜광장에서 다른 성도의 말씀 카드를 보관해 보세요."
                         }
                       </p>
                     </div>
