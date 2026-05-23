@@ -21,7 +21,8 @@ const Icons = {
   Volume: () => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>,
   VolumeX: () => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>,
   MessageCircle: () => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>,
-  Feather: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/></svg>
+  Feather: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/></svg>,
+  Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
 };
 
 // ==========================================
@@ -403,7 +404,9 @@ const FeedCard = ({
       onToggleLikeGlobal,
       user,
       nickname,
-      onCommentCountChange
+      onCommentCountChange,
+      onDeleteCard,
+      userProfiles
     }) => {
 const [isPlaying, setIsPlaying] = useState(false);
   const [isMeditationOpen, setIsMeditationOpen] = useState(false);
@@ -890,6 +893,17 @@ const handleAudioEnded = () => {
         />
       )}
 
+      {/* 본인 카드 삭제 버튼 */}
+      {user && String(user.id) === String(card.author_id) && !isPreview && (
+        <button 
+          onClick={(e) => { e.stopPropagation(); onDeleteCard(card.id); }}
+          className="absolute top-[116px] right-4 z-30 p-2.5 rounded-full bg-red-950/50 hover:bg-red-950/80 border border-red-500/20 text-red-400 active:scale-95 transition-all"
+          title="말씀 카드 삭제"
+        >
+          <Icons.Trash />
+        </button>
+      )}
+
       {/* 우상단 음소거 제어 */}
       {card.audio && !isPreview && (
         <button 
@@ -912,9 +926,13 @@ const handleAudioEnded = () => {
               className="flex items-center gap-3 cursor-pointer group"
               title="성서 서재 방문하기"
             >
-              {/* 카카오톡 프로필 스타일의 부드러운 스퀘어(Squircle) */}
-              <div className="w-10 h-10 rounded-[11px] bg-gradient-to-tr from-[#DFBA73] to-[#A37B3F] flex items-center justify-center text-black text-[13px] font-bold border border-[#DFBA73]/25 shadow-md group-hover:scale-105 transition-transform shrink-0">
-                {card.author?.charAt(0).toUpperCase() || 'U'}
+              {/* 카카오톡 프로필 사진 연동 및 부드러운 스퀘어(Squircle) */}
+              <div className="w-10 h-10 rounded-[11px] bg-[#1a1612] flex items-center justify-center text-[#DFBA73] text-[13px] font-bold border border-[#DFBA73]/25 shadow-md group-hover:scale-105 transition-transform shrink-0 overflow-hidden">
+                {userProfiles && userProfiles[card.author] ? (
+                  <img src={userProfiles[card.author]} alt="profile" className="w-full h-full object-cover" />
+                ) : (
+                  card.author?.charAt(0).toUpperCase() || 'U'
+                )}
               </div>
               <div className="flex flex-col min-w-0">
                 {/* 닉네임만 표시 (@ 제거) */}
@@ -1484,6 +1502,7 @@ const [user, setUser] = useState(() => {
     const [activeProfileUser, setActiveProfileUser] = useState(() => localStorage.getItem('biblegram_nickname') || "은혜나눔인");
     const [savedCards, setSavedCards] = useState([]);
     const [likedCardsState, setLikedCardsState] = useState({});
+    const [userProfiles, setUserProfiles] = useState({});
 const [verseRefInput, setVerseRefInput] = useState('');
   const [verseText, setVerseText] = useState('');
   
@@ -1503,6 +1522,25 @@ const [verseRefInput, setVerseRefInput] = useState('');
       setToast(prev => ({ ...prev, show: false }));
     }, 2800);
   };
+  const fetchUserProfiles = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('nickname, profile_image');
+      if (!error && data) {
+        const profileMap = {};
+        data.forEach(u => {
+          if (u.nickname) {
+            profileMap[u.nickname] = u.profile_image || '';
+          }
+        });
+        setUserProfiles(profileMap);
+      }
+    } catch (err) {
+      console.error("Error fetching user profiles:", err);
+    }
+  };
+
   const fetchFeed = async () => {
     try {
       const { data, error } = await supabase
@@ -1515,6 +1553,7 @@ const [verseRefInput, setVerseRefInput] = useState('');
           meditation,
           user_thought,
           author_nickname,
+          author_id,
           likes_count,
           created_at,
           comments (id)
@@ -1531,11 +1570,27 @@ const [verseRefInput, setVerseRefInput] = useState('');
         meditation: item.meditation,
         userThought: item.user_thought,
         author: item.author_nickname,
+        author_id: item.author_id,
         likes: item.likes_count,
-        commentCount: item.comments ? item.comments.length : 0
+        commentCount: item.comments ? item.comments.length : 0,
+        created_at: item.created_at
       }));
       
-      setFeedCards(mapped);
+      // 지능형 은혜 로테이션 알고리즘 적용 (100명 이용 시 쇼츠식 다양성 확보)
+      const sorted = mapped.sort((a, b) => {
+        // 1순위: 로그인 유저 본인이 작성한 카드는 최상단에 고정 피드백 제공
+        const aMine = user && String(a.author_id) === String(user.id) ? 1 : 0;
+        const bMine = user && String(b.author_id) === String(user.id) ? 1 : 0;
+        if (aMine !== bMine) return bMine - aMine;
+
+        // 2순위: 공감 가중치 + 시간 점수 + 랜덤 셔플
+        // (likes * 6) + (작성시점 점수) + (0~20점 무작위 보너스로 매 스크롤 시 교차 노출)
+        const aScore = (a.likes || 0) * 6 + (new Date(a.created_at).getTime() / 10000000000) + Math.random() * 20;
+        const bScore = (b.likes || 0) * 6 + (new Date(b.created_at).getTime() / 10000000000) + Math.random() * 20;
+        return bScore - aScore;
+      });
+      
+      setFeedCards(sorted);
     } catch (err) {
       console.error("Error fetching feed:", err);
       showToast("피드 데이터를 불러오는 데 실패했습니다.", "error");
@@ -1558,6 +1613,7 @@ const [verseRefInput, setVerseRefInput] = useState('');
             meditation,
             user_thought,
             author_nickname,
+            author_id,
             likes_count,
             comments (id)
           )
@@ -1576,6 +1632,7 @@ const [verseRefInput, setVerseRefInput] = useState('');
           meditation: item.cards.meditation,
           userThought: item.cards.user_thought,
           author: item.cards.author_nickname,
+          author_id: item.cards.author_id,
           likes: item.cards.likes_count,
           commentCount: item.cards.comments ? item.cards.comments.length : 0
         }));
@@ -1612,6 +1669,7 @@ const [verseRefInput, setVerseRefInput] = useState('');
   useEffect(() => {
     let active = true;
     const loadData = async () => {
+      await fetchUserProfiles();
       await fetchFeed();
       if (!active) return;
       if (user && user.id) {
@@ -1859,6 +1917,31 @@ const handleToggleLikeGlobal = async (cardId) => {
         setSelectedCard(prev => ({ ...prev, commentCount: newCount }));
       }
     };
+
+    const handleDeleteCard = async (cardId) => {
+      if (!window.confirm("이 말씀 카드를 성전(피드) 및 서재에서 완전히 삭제하시겠습니까?")) return;
+      setIsAuthLoading(true);
+      try {
+        const { error } = await supabase
+          .from('cards')
+          .delete()
+          .eq('id', cardId);
+        
+        if (error) throw error;
+        
+        // 로컬 상태 동기화 처리
+        setFeedCards(prev => prev.filter(c => c.id !== cardId));
+        setSavedCards(prev => prev.filter(c => c.id !== cardId));
+        setSelectedCard(null);
+        setView('feed');
+        showToast("말씀 카드가 성전에서 온전히 삭제되었습니다.", "success");
+      } catch (err) {
+        console.error("Error deleting card:", err);
+        showToast("카드 삭제에 실패했습니다. 다시 시도해 주세요.", "error");
+      } finally {
+        setIsAuthLoading(false);
+      }
+    };
 const handleSearchVerse = async () => {
     if (!verseRefInput.trim()) {
       showToast("장절 주소를 입력하세요 (예: 요한복음 3:16)", "info");
@@ -2097,6 +2180,8 @@ return (
                     user={user}
                     nickname={nickname}
                     onCommentCountChange={handleCommentCountChangeGlobal}
+                    onDeleteCard={handleDeleteCard}
+                    userProfiles={userProfiles}
                   />
                 ))}
               </div>
@@ -2104,7 +2189,7 @@ return (
 
             {/* 2. 묵상 생성 및 입력 뷰 영역 */}
             {view === 'create' && (
-              <div className="flex-1 flex flex-col bg-[#FDFBF7] text-[#2C241B] p-6 pt-16 z-10 pb-28 overflow-y-auto hide-scrollbar">
+              <div className="flex-1 flex flex-col bg-[#FDFBF7] text-[#2C241B] p-6 pt-16 z-10 pb-36 overflow-y-auto hide-scrollbar">
                 <div className="flex justify-between items-start mb-5 w-full pt-4">
                   <div className="flex-1">
                     <span className="text-[10px] text-[#A37B3F] font-semibold tracking-[0.2em] uppercase">Visual Devotion</span>
@@ -2203,6 +2288,8 @@ return (
                     user={user}
                     nickname={nickname}
                     onCommentCountChange={handleCommentCountChangeGlobal}
+                    onDeleteCard={handleDeleteCard}
+                    userProfiles={userProfiles}
                    />
                 </div>
                 {/* 프리뷰 위 정렬 버튼들 */}
@@ -2245,6 +2332,8 @@ return (
                     user={user}
                     nickname={nickname}
                     onCommentCountChange={handleCommentCountChangeGlobal}
+                    onDeleteCard={handleDeleteCard}
+                    userProfiles={userProfiles}
                   />
                 </div>
               </div>
@@ -2275,43 +2364,48 @@ return (
                   </div>
                 )}
 
-                <div className={`px-6 pb-6 border-b border-white/5 bg-gradient-to-b from-[#111111] to-[#050505] flex flex-col items-center text-center ${activeProfileUser === "은혜나눔인" ? "pt-20" : "pt-6"}`}>
+                <div className="px-6 border-b border-white/5 bg-gradient-to-b from-[#111111] to-[#050505] flex flex-col items-center text-center pt-14 pb-4">
                   <div className="relative">
-                    <div className="absolute inset-0 rounded-full border border-[#DFBA73] animate-ping opacity-25" />
-                    <div className="w-16 h-16 rounded-full border-2 border-[#DFBA73] flex items-center justify-center bg-gradient-to-tr from-[#1E1812] to-black text-[#DFBA73] shadow-[0_0_25px_rgba(223,186,115,0.25)] mb-3">
-                       <Icons.User />
+                    <div className="absolute inset-0 rounded-[20px] border border-[#DFBA73] animate-ping opacity-15" />
+                    <div className="w-14 h-14 rounded-[18px] border-2 border-[#DFBA73]/40 flex items-center justify-center bg-gradient-to-tr from-[#1E1812] to-black text-[#DFBA73] shadow-[0_0_20px_rgba(223,186,115,0.15)] mb-2.5 overflow-hidden shrink-0">
+                      {userProfiles && userProfiles[activeProfileUser] ? (
+                        <img src={userProfiles[activeProfileUser]} alt="profile" className="w-full h-full object-cover" />
+                      ) : (activeProfileUser === nickname || activeProfileUser === "은혜나눔인") && user && user.profileImage ? (
+                        <img src={user.profileImage} alt="profile" className="w-full h-full object-cover" />
+                      ) : (
+                        <Icons.User />
+                      )}
                     </div>
                   </div>
                   
-                  <h1 className="text-lg font-bold text-[#F9F7F1] tracking-wide">
-                    @{activeProfileUser === "은혜나눔인" ? "나의 서재" : activeMeta.name}
+                  <h1 className="text-base font-bold text-[#F9F7F1] tracking-wide">
+                    {activeProfileUser === "은혜나눔인" ? "나의 서재" : activeMeta.name}
                   </h1>
-                  <p className="text-[#DFBA73]/80 text-[10.5px] mt-1 font-myeongjo tracking-[0.1em] px-4 break-keep leading-relaxed">
+                  <p className="text-[#DFBA73]/70 text-[9.5px] mt-0.5 font-myeongjo tracking-[0.05em] px-4 break-keep leading-normal">
                     {activeMeta.desc}
                   </p>
                   
-                  <div className="grid grid-cols-2 gap-4 w-full max-w-[240px] mt-5 pt-4 border-t border-white/5 text-center">
+                  <div className="grid grid-cols-2 gap-4 w-full max-w-[240px] mt-3.5 pt-2.5 border-t border-white/5 text-center">
                     <div>
-                      <div className="text-[14px] font-bold text-[#DFBA73]">{getVisibleCardsForActiveProfile().length}</div>
-                      <div className="text-[9px] text-white/40 mt-0.5">작성/보관 성구</div>
+                      <div className="text-[13px] font-bold text-[#DFBA73]">{getVisibleCardsForActiveProfile().length}</div>
+                      <div className="text-[8.5px] text-white/35">작성/보관 성구</div>
                     </div>
                     <div>
-                      <div className="text-[14px] font-bold text-[#DFBA73]">
-                        {/* 내 서재에서의 글로벌 공감 수치 및 개별 공감 수치 합산 실시간 반영 */}
+                      <div className="text-[13px] font-bold text-[#DFBA73]">
                         {activeProfileUser === "은혜나눔인" 
                           ? savedCards.reduce((acc, card) => acc + (card.likes || 0) + (likedCardsState[card.id] ? 1 : 0), 0)
                           : activeMeta.stars
                         }
                       </div>
-                      <div className="text-[9px] text-white/40 mt-0.5">공감 은혜</div>
+                      <div className="text-[8.5px] text-white/35">공감 은혜</div>
                     </div>
                   </div>
                 </div>
                 
                 {/* 서재 내부 그리드 표현 */}
-                <div className="p-4 flex-1">
-                  <h2 className="text-[11px] text-[#DFBA73]/80 font-bold tracking-widest uppercase font-myeongjo mb-3.5 pl-1">
-                    {activeProfileUser === "은혜나눔인" ? "소장한 묵상 카드" : `@${activeProfileUser} 님의 묵상 기록`}
+                <div className="px-4 py-3 flex-1">
+                  <h2 className="text-[10.5px] text-[#DFBA73]/80 font-bold tracking-widest uppercase font-myeongjo mb-2.5 pl-1">
+                    {activeProfileUser === "은혜나눔인" ? "소장한 묵상 카드" : `${activeProfileUser} 님의 묵상 기록`}
                   </h2>
                   
                   {getVisibleCardsForActiveProfile().length === 0 ? (
@@ -2349,7 +2443,7 @@ return (
             )}
 
             {/* 7. 프리미엄 도크 바 네비게이션 */}
-            <div className="absolute bottom-0 w-full h-[80px] bg-gradient-to-t from-black via-black/95 to-transparent backdrop-blur-md flex justify-around items-center pb-4 px-8 z-50 pointer-events-auto border-t border-white/[0.04]">
+            <div className="absolute bottom-0 w-full h-[88px] bg-gradient-to-t from-black via-black/95 to-transparent backdrop-blur-md flex justify-around items-center pb-[calc(12px+env(safe-area-inset-bottom))] px-8 z-50 pointer-events-auto border-t border-white/[0.04]">
               <button 
                 onClick={() => setView('feed')} 
                 className={`flex flex-col items-center p-2.5 transition-all duration-300 ${view === 'feed' ? 'text-[#DFBA73] scale-110 drop-shadow-md' : 'text-white/30'}`}
