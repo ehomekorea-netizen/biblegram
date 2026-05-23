@@ -2207,50 +2207,91 @@ return (
           line-height: 1.7 !important;
         }
         
-        /* 성화수록 생성 화면 내 큰글씨(Large Font) 전역 오버라이드 규칙 */
+        /* 성화수록 생성 화면 기본값 */
+        .devotion-create-title {
+          font-size: 23px !important;
+        }
+        .devotion-create-subtitle {
+          font-size: 12px !important;
+          line-height: 1.5 !important;
+        }
+        .devotion-create-label {
+          font-size: 13px !important;
+        }
+        .devotion-create-help {
+          font-size: 10.5px !important;
+          line-height: 1.5 !important;
+        }
+        .devotion-create-input {
+          font-size: 17px !important;
+          padding-top: 8px !important;
+          padding-bottom: 8px !important;
+        }
+        .devotion-create-btn {
+          font-size: 14px !important;
+        }
+        .devotion-create-textarea {
+          font-size: 17px !important;
+          line-height: 1.6 !important;
+          min-height: 100px !important;
+        }
+        .devotion-create-option-title {
+          font-size: 13.5px !important;
+        }
+        .devotion-create-option-desc {
+          font-size: 10.5px !important;
+          line-height: 1.4 !important;
+        }
+        .devotion-create-cta {
+          font-size: 15px !important;
+          padding-top: 14px !important;
+          padding-bottom: 14px !important;
+        }
+
+        /* 성화수록 생성 화면 내 큰글씨(Large Font) ON 오버라이드 규칙 */
         .large-font .devotion-create-title {
-          font-size: 25px !important;
+          font-size: 27px !important;
         }
         .large-font .devotion-create-subtitle {
-          font-size: 13px !important;
+          font-size: 14px !important;
           line-height: 1.5 !important;
         }
         .large-font .devotion-create-label {
-          font-size: 14.5px !important;
+          font-size: 16px !important;
         }
         .large-font .devotion-create-help {
-          font-size: 11.5px !important;
+          font-size: 13px !important;
           line-height: 1.5 !important;
         }
         .large-font .devotion-create-input {
-          font-size: 19px !important;
-          padding-top: 10px !important;
-          padding-bottom: 10px !important;
+          font-size: 21px !important;
+          padding-top: 12px !important;
+          padding-bottom: 12px !important;
         }
         .large-font .devotion-create-btn {
-          font-size: 15px !important;
+          font-size: 16px !important;
         }
         .large-font .devotion-create-textarea {
-          font-size: 18px !important;
+          font-size: 20px !important;
           line-height: 1.6 !important;
-          min-height: 120px !important;
+          min-height: 130px !important;
         }
         .large-font .devotion-create-option-title {
-          font-size: 15px !important;
+          font-size: 16.5px !important;
         }
         .large-font .devotion-create-option-desc {
-          font-size: 11.5px !important;
+          font-size: 13px !important;
           line-height: 1.4 !important;
         }
         .large-font .devotion-create-cta {
-          font-size: 16.5px !important;
-          padding-top: 16px !important;
-          padding-bottom: 16px !important;
+          font-size: 18px !important;
+          padding-top: 18px !important;
+          padding-bottom: 18px !important;
         }
       `}</style>
 
       {/* 스마트폰 전용 뷰 포트 시뮬레이션 (sm 미만 모바일에서는 꽉 차게 렌더링하여 경계 배젤 완전히 제거) */}
-      <div className={`relative w-full max-w-[430px] h-[100dvh] bg-[#050505] flex flex-col md:shadow-[0_25px_60px_rgba(0,0,0,0.9)] overflow-hidden md:rounded-[48px] md:h-[860px] md:border md:border-white/10 md:my-4 transition-all duration-300 ${isLargeFont ? 'large-font' : ''}`}>
+      <div className="relative w-full max-w-[430px] h-[100dvh] bg-[#050505] flex flex-col md:shadow-[0_25px_60px_rgba(0,0,0,0.9)] overflow-hidden md:rounded-[48px] md:h-[860px] md:border md:border-white/10 md:my-4 transition-all duration-300">
         
         {isAuthLoading ? (
           <LoadingFlashback loadingStep="카카오 인증 처리 중..." />
