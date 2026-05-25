@@ -65,8 +65,8 @@ export default async function handler(req, res) {
     const cards = await countResponse.json();
     const totalCards = cards ? cards.length : 0;
 
-    // Trigger only when total count of cards in DB is a multiple of 10
-    const shouldTrigger = totalCards > 0 && totalCards % 10 === 0;
+    // Trigger only when total count of cards in DB is a multiple of 5
+    const shouldTrigger = totalCards > 0 && totalCards % 5 === 0;
 
     if (!shouldTrigger) {
       return res.status(200).json({ 

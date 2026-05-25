@@ -4,8 +4,12 @@
   ],
   "crons": [
     {
+      "path": "/api/morning-push",
+      "schedule": "0 22 * * *"
+    },
+    {
       "path": "/api/cron-push",
-      "schedule": "47 12 * * *"
+      "schedule": "0 12 * * *"
     }
   ]
 }
