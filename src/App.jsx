@@ -2976,7 +2976,7 @@ const [user, setUser] = useState(() => {
           // 토스트 메시지나 배너 없이 은밀하게 Supabase 실시간 동기화
           await Promise.all([
             fetchMyCreatedCards(),
-            fetchSavedCards(),
+            fetchBookmarks(),
             fetchUserProfiles(),
             fetchFeed()
           ]);
@@ -3213,6 +3213,7 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
       const { data, error } = await supabase
         .from('comments')
         .select('*')
+        .like('comment_text', `__BIBLEGRAM_NOTIF__:%:${checkUser.id}:%`)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -3494,9 +3495,38 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
         'postgres_changes',
         { event: '*', schema: 'public', table: 'comments' },
         async (payload) => {
-          // 댓글 테이블의 추가/삭제/변경이 생기면 백그라운드 fetch를 호출하여
-          // 피드 댓글 카운트를 무결하게 동기화
-          await fetchFeed();
+          // 댓글 테이블의 추가/삭제/변경이 생기면 백그라운드 fetch 대신 로컬 상태로 무결하게 동기화
+          const isInsert = payload.eventType === 'INSERT';
+          const isDelete = payload.eventType === 'DELETE';
+          const com = isInsert ? payload.new : (isDelete ? payload.old : null);
+          
+          if (!com || !com.card_id) return;
+          
+          // 알림이나 공유 액션 등 정상 댓글이 아닌 특수 댓글은 피드 댓글 수 카운트에서 제외
+          const isNormalComment = com.comment_text && 
+            com.comment_text !== '__BIBLEGRAM_SHARE_ACTION__' && 
+            !com.comment_text.startsWith('__BIBLEGRAM_NOTIF__') &&
+            !com.comment_text.startsWith('__BIBLEGRAM_COMMENT_LIKE__:');
+            
+          if (!isNormalComment) return;
+
+          const diff = isInsert ? 1 : (isDelete ? -1 : 0);
+          if (diff === 0) return;
+
+          setFeedCards(prev => prev.map(c => c.id === com.card_id ? {
+            ...c,
+            commentCount: Math.max(0, (c.commentCount || 0) + diff)
+          } : c));
+
+          setMyCreatedCards(prev => prev.map(c => c.id === com.card_id ? {
+            ...c,
+            commentCount: Math.max(0, (c.commentCount || 0) + diff)
+          } : c));
+
+          setSavedCards(prev => prev.map(c => c.id === com.card_id ? {
+            ...c,
+            commentCount: Math.max(0, (c.commentCount || 0) + diff)
+          } : c));
         }
       )
       .subscribe();
