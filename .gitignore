@@ -23,3 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+scratch/
+src/App.backup.*.jsx
+inspect_cards.cjs
+inspect_comment_db.js
+*.log
+*.txt

@@ -78,6 +78,78 @@ export default async function handler(req, res) {
   const { action, reference, verseText, userThought } = req.body;
 
   try {
+    // 0. 웹 푸시 처리
+    if (action === 'push') {
+      const { targetUserId, title, body, data, image } = req.body;
+      if (!targetUserId || !title || !body) {
+        return res.status(400).json({ error: 'targetUserId, title, and body are required for push' });
+      }
+
+      const supabaseUrl = process.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !supabaseAnonKey) {
+        return res.status(500).json({ error: 'Supabase configuration keys missing in API env' });
+      }
+
+      const webpush = (await import('web-push')).default;
+      webpush.setVapidDetails(
+        'mailto:wlstlfdl11@kakao.com',
+        'BBKn6U7kjRk4ZTVaLdxtGJ0yVnG6OjGxwL1VFB0bhm0NTPl2CLfElNl00IUxhbPBuNkF3H28MHMNcW10QnHLGFQ',
+        'V65_m9sYALojbT25wB1AdGkNIE4M7OBY1w7Wl1_6-t4'
+      );
+
+      const subUrl = `${supabaseUrl}/rest/v1/push_subscriptions?user_id=eq.${encodeURIComponent(targetUserId)}&select=subscription`;
+      const subResponse = await fetch(subUrl, {
+        method: 'GET',
+        headers: {
+          'apikey': supabaseAnonKey,
+          'Authorization': `Bearer ${supabaseAnonKey}`
+        }
+      });
+
+      if (!subResponse.ok) {
+        console.error("Failed to query subscription from Supabase:", await subResponse.text());
+        return res.status(200).json({ status: 'ignored', reason: 'db_query_failed' });
+      }
+
+      const rows = await subResponse.json();
+      if (!rows || rows.length === 0) {
+        console.log(`No push subscription found for user: ${targetUserId}`);
+        return res.status(200).json({ status: 'ignored', reason: 'no_subscription_found' });
+      }
+
+      let successCount = 0;
+      for (const row of rows) {
+        try {
+          const subscriptionObj = typeof row.subscription === 'string' ? JSON.parse(row.subscription) : row.subscription;
+          const payloadStr = JSON.stringify({ 
+            title, 
+            body, 
+            data: { ...data, image: image || (data && data.image) },
+            image: image || (data && data.image) 
+          });
+          
+          await webpush.sendNotification(subscriptionObj, payloadStr);
+          successCount++;
+        } catch (err) {
+          console.error("Failed to send web push to client endpoint:", err);
+          if (err.statusCode === 410 || err.statusCode === 404) {
+            console.log("Push subscription expired, deleting...");
+            const deleteUrl = `${supabaseUrl}/rest/v1/push_subscriptions?user_id=eq.${encodeURIComponent(targetUserId)}`;
+            await fetch(deleteUrl, {
+              method: 'DELETE',
+              headers: {
+                'apikey': supabaseAnonKey,
+                'Authorization': `Bearer ${supabaseAnonKey}`
+              }
+            });
+          }
+        }
+      }
+
+      return res.status(200).json({ status: 'ok', sent: successCount });
+    }
+
     // 1. OpenAI TTS 처리
     if (action === 'tts') {
       const textToSpeak = verseText || req.body.text;
@@ -134,14 +206,17 @@ export default async function handler(req, res) {
 개역개정 번역본 기준으로 사용자가 요청한 정확한 장절 범위의 본문만을 찾아 반환해 주세요.
 
 [★ 절대 필수 준수 지침 ★]
-1. 단일 절 요청 처리: 사용자가 특정 절 하나만 지정한 경우(예: "창세기 1장 1절", "창세 1:1", "요한복음 3장 16절" 등), 절대로 다른 절(2절, 3절 등)을 붙이지 말고 오직 해당 1개의 절만 완벽하게 반환하십시오.
-   - 예: "창세기 1장 1절"을 검색하면 오직 1절 본문인 "태초에 하나님이 천지를 창조하시니라." 한 문장만 반환해야 합니다. 뒤따르는 2절("땅이 혼돈하고 공허하며...")이나 3절은 절대 포함하지 마십시오.
-2. 범위 절 요청 처리: 사용자가 명시적인 범위(예: "창세기 1:6~9", "마태복음 7:4~7" 등)를 지정한 경우에만 해당 범위 내의 절들을 빠짐없이 순서대로 합쳐서 반환하십시오.
-3. 사설이나 설명, 마크다운 기호를 모두 제외하고 아래 JSON 형식으로만 정확히 응답하십시오:
+1. 존재 여부 판단: 사용자가 요청한 장(Chapter) 또는 절(Verse) 범위가 해당 성경 책에 존재하지 않는 경우(예: 이사야 18장에 존재하지 않는 33절을 요청하는 등), 반드시 "exists": false로 지정하고, "error" 필드에 "이사야 18:33절은 존재하지 않는 구절입니다." 형태의 한국어 명확한 오류 문구를 채워 반환하십시오.
+2. 단일 절 요청 처리: 사용자가 특정 절 하나만 지정하고 실존하는 경우, 절대로 다른 절을 붙이지 말고 오직 해당 1개의 절만 완벽하게 반환하고, "exists": true로 지정하십시오.
+   - 예: "창세기 1장 1절"을 검색하면 오직 1절 본문인 "태초에 하나님이 천지를 창조하시니라." 한 문장만 반환해야 합니다. 뒤따르는 2절이나 3절은 절대 포함하지 마십시오.
+3. 범위 절 요청 처리: 사용자가 명시적인 범위(예: "창세기 1:6~9" 등)를 지정하고 실존하는 경우에만 해당 범위 내의 절들을 빠짐없이 순서대로 합쳐서 반환하고, "exists": true로 지정하십시오.
+4. 사설이나 설명, 마크다운 기호를 모두 제외하고 아래 JSON 형식으로만 정확히 응답하십시오:
 {
-  "text": "정확한 성경 구절 본문"
+  "exists": true 또는 false (성경 구절 존재 여부),
+  "text": "정확한 성경 구절 본문 (실존할 때만 기입, 존재하지 않으면 빈 문자열)",
+  "error": "존재하지 않을 때 성도님께 보여줄 에러 메시지 (실존하면 빈 문자열)"
 }`;
-      systemInstruction = "당신은 개역개정 성경 구절을 글자 하나 틀리지 않고 정확하게 검색해 주는 정확하고 엄격한 성경 데이터베이스 에이전트입니다. 창작이나 추론, 임의 덧붙임 없이 오직 사용자가 명시한 정확한 장절 본문만을 반환해야 합니다.";
+      systemInstruction = "당신은 개역개정 성경 구절을 글자 하나 틀리지 않고 정확하게 검색해 주는 정확하고 엄격한 성경 데이터베이스 에이전트입니다. 창작이나 추론, 임의 덧붙임 없이 오직 사용자가 명시한 정확한 장절 본문만을 반환해야 합니다. 존재하지 않는 구절인 경우 엄격히 exists: false를 식별해 주십시오.";
     } else if (action === 'create') {
       if (!verseText) {
         return res.status(400).json({ error: 'Verse text is required for create action' });
@@ -218,7 +293,7 @@ export default async function handler(req, res) {
         // If it's a create action, fetch dynamic image
         if (action === 'create') {
           let imageUrl = '';
-          if (unsplashApiKey) {
+          if (false && unsplashApiKey) {
             try {
               const query = parsed.visualKeywords || parsed.visualTheme || 'bible';
               const unsplashUrl = `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&orientation=portrait&client_id=${unsplashApiKey}`;
