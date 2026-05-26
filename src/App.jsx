@@ -959,8 +959,42 @@ const audioRef = useRef(null);
   const handleShareClick = async (e) => {
     e.stopPropagation();
     
-    // 기기 공유 UI 트리거
-    handleDeviceShare(e);
+    // Kakao SDK 공유 우선 시도 (iOS/안드로이드 기기 격차 전면 해소)
+    let sharedViaKakao = false;
+    if (window.Kakao && window.Kakao.isInitialized()) {
+      try {
+        window.Kakao.Share.sendDefault({
+          objectType: 'feed',
+          content: {
+            title: '🌅 바이블그램 은혜의 말씀',
+            description: card.text,
+            imageUrl: card.image,
+            link: {
+              mobileWebUrl: window.location.origin,
+              webUrl: window.location.origin,
+            },
+          },
+          buttons: [
+            {
+              title: '묵상 성소 입장하기',
+              link: {
+                mobileWebUrl: window.location.origin,
+                webUrl: window.location.origin,
+              },
+            },
+          ],
+        });
+        onShowToast("카카오톡으로 말씀 카드가 은혜롭게 공유되었습니다.", "success");
+        sharedViaKakao = true;
+      } catch (err) {
+        console.warn("Kakao share failed, falling back to device share:", err);
+      }
+    }
+
+    if (!sharedViaKakao) {
+      // 기기 공유 UI 트리거
+      handleDeviceShare(e);
+    }
 
     // 로그인된 사용자에 한해 1인 1회 카운팅
     if (!user) return;
@@ -2871,6 +2905,7 @@ const [user, setUser] = useState(() => {
     });
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [showPushPromptModal, setShowPushPromptModal] = useState(false);
+    const [isDeleteAccountModalOpen, setIsDeleteAccountModalOpen] = useState(false);
     const [showSplash, setShowSplash] = useState(true);
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -3586,6 +3621,19 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // Kakao SDK 안전 초기화 (REST API 키 또는 JS 키 호환 대응)
+  useEffect(() => {
+    if (window.Kakao && !window.Kakao.isInitialized()) {
+      const kakaoKey = import.meta.env.VITE_KAKAO_JS_KEY || import.meta.env.VITE_KAKAO_REST_API_KEY || '49ae99f04c3b46ec6d7db256489c7a11';
+      try {
+        window.Kakao.init(kakaoKey.trim());
+        console.log("Kakao SDK Initialized successfully");
+      } catch (err) {
+        console.error("Kakao SDK Initialization failed:", err);
+      }
+    }
+  }, []);
+
   const handleNotificationNavigation = (cardId, type) => {
     if (!cardId) return;
     
@@ -3772,10 +3820,17 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
         console.error("Auto notification prompt failed:", err);
       }
     } else if (Notification.permission === 'granted') {
-      if ('serviceWorker' in navigator) {
-        const reg = await navigator.serviceWorker.ready.catch(() => null);
-        if (reg) {
-          await registerPushSubscription(reg);
+      const now = Date.now();
+      const lastCheck = localStorage.getItem('biblegram_last_push_renew_check');
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+      
+      if (!lastCheck || now - Number(lastCheck) > sevenDaysMs) {
+        if ('serviceWorker' in navigator) {
+          const reg = await navigator.serviceWorker.ready.catch(() => null);
+          if (reg) {
+            await registerPushSubscription(reg);
+            localStorage.setItem('biblegram_last_push_renew_check', String(now));
+          }
         }
       }
     }
@@ -4274,6 +4329,63 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
     setLikedCardsState({});
     setView('feed');
     showToast("로그아웃 되었습니다.", "info");
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!user || !user.id) return;
+    setIsAuthLoading(true);
+    try {
+      // 1. 좋아요 정보 삭제
+      await supabase.from('likes').delete().eq('user_id', user.id);
+      
+      // 2. 북마크 정보 삭제
+      await supabase.from('bookmarks').delete().eq('user_id', user.id);
+      
+      // 3. 사용자가 작성한 카드들의 ID 조회
+      const { data: myCards } = await supabase
+        .from('cards')
+        .select('id')
+        .eq('author_id', user.id);
+        
+      const myCardIds = (myCards || []).map(c => c.id);
+      
+      if (myCardIds.length > 0) {
+        // 내가 쓴 카드에 달린 타인의 댓글/좋아요 등 하위 정보 선제적 일괄 제거 (외래키 충돌 원천 봉쇄)
+        await supabase.from('comments').delete().in('card_id', myCardIds);
+        await supabase.from('likes').delete().in('card_id', myCardIds);
+        await supabase.from('bookmarks').delete().in('card_id', myCardIds);
+        
+        // 내 카드 본체들 일괄 삭제
+        await supabase.from('cards').delete().in('id', myCardIds);
+      }
+      
+      // 4. 내가 타인 글에 작성한 댓글 일괄 삭제
+      await supabase.from('comments').delete().eq('user_id', user.id);
+      
+      // 5. 푸시 알림 구독 정보 삭제
+      await supabase.from('push_subscriptions').delete().eq('user_id', user.id);
+      
+      // 6. 회원 정보 본체 완전 영구 삭제
+      const { error } = await supabase.from('users').delete().eq('id', user.id);
+      
+      if (error) throw error;
+      
+      // 7. 로컬 상태 완전 초기화 및 로그아웃 방출
+      localStorage.removeItem('biblegram_user');
+      localStorage.removeItem('biblegram_nickname');
+      setUser(null);
+      setNickname('');
+      setSavedCards([]);
+      setLikedCardsState({});
+      setView('feed');
+      setIsDeleteAccountModalOpen(false);
+      showToast("회원 탈퇴가 은혜롭고 안전하게 즉시 완료되었습니다.", "success");
+    } catch (err) {
+      console.error("Account deletion failed:", err);
+      showToast("탈퇴 처리 중 에러가 발생했습니다. 다시 시도해 주세요.", "error");
+    } finally {
+      setIsAuthLoading(false);
+    }
   };
 
   const handleCompleteOnboarding = async (nick) => {
@@ -5268,7 +5380,7 @@ return (
                   
                   <div className="flex items-center justify-between bg-[#F4EFE6] px-4 py-2 rounded-2xl border border-[#D8CFC0] mb-2">
                     <div className="flex flex-col text-left">
-                      <span className={`font-bold text-[#1A1510] transition-all ${isLargeFont ? 'text-[16.5px]' : 'text-[13.5px]'}`}>오늘의 고백 추가하기</span>
+                      <span className={`font-bold text-[#1A1510] transition-all ${isLargeFont ? 'text-[16.5px]' : 'text-[13.5px]'}`}>오늘의 고백 추가하기 <span className="text-[#A37B3F] text-[11px] font-black ml-1">(최대 200자)</span></span>
                       <span className={`text-stone-500 devotion-create-option-desc transition-all ${isLargeFont ? 'text-[13px]' : 'text-[10.5px]'}`}>고백 활성화 시 묵상과 성화에 오늘 마음이 융합됩니다.</span>
                     </div>
                     <button 
@@ -5281,12 +5393,23 @@ return (
                   </div>
 
                   {includeThought && (
-                    <textarea 
-                      value={userThought}
-                      onChange={(e) => setUserThought(e.target.value)}
-                      placeholder="오늘 내가 마주한 상황, 주님 앞에 뉘우치는 고백, 혹은 간절한 기도의 실상을 적어주세요."
-                      className={`w-full bg-white/85 border border-[#E8E1D5] rounded-2xl p-3.5 focus:outline-none focus:ring-1 focus:ring-[#A37B3F] resize-none font-sans leading-[1.5] placeholder:text-stone-400 shadow-sm animate-fade-in-up transition-all ${isLargeFont ? 'text-[20px] min-h-[130px]' : 'text-[17px] min-h-[100px]'}`}
-                    />
+                    <div className="relative w-full animate-fade-in-up">
+                      <textarea 
+                        value={userThought}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val.length <= 200) {
+                            setUserThought(val);
+                          }
+                        }}
+                        maxLength={200}
+                        placeholder="오늘 내가 마주한 상황, 주님 앞에 뉘우치는 고백, 혹은 간절한 기도의 실상을 적어주세요."
+                        className={`w-full bg-white/85 border border-[#E8E1D5] rounded-2xl p-3.5 pb-8 focus:outline-none focus:ring-1 focus:ring-[#A37B3F] resize-none font-sans leading-[1.5] placeholder:text-stone-400 shadow-sm transition-all ${isLargeFont ? 'text-[20px] min-h-[130px]' : 'text-[17px] min-h-[100px]'}`}
+                      />
+                      <span className={`absolute bottom-2.5 right-3.5 text-stone-400/80 font-sans font-semibold tracking-wider ${isLargeFont ? 'text-[12.5px]' : 'text-[9.5px]'}`}>
+                        {userThought.length} / 200자
+                      </span>
+                    </div>
                   )}
                 </div>
 
@@ -5878,10 +6001,22 @@ return (
                       </div>
                     </div>
 
-                    {/* 카카오 계정 연동 상태 표시 */}
-                    <div className="flex items-center gap-2.5 bg-white/[0.02] border border-white/[0.04] p-4 rounded-2xl">
-                      <span className="w-2 h-2 rounded-full bg-[#FEE500] animate-pulse shadow-[0_0_8px_rgba(254,229,0,0.6)]" />
-                      <span className="text-[13.5px] font-extrabold text-[#FEE500] font-sans tracking-wide drop-shadow-sm">카카오계정 연동됨</span>
+                    {/* 카카오 계정 연동 상태 표시 및 회원 탈퇴 가로 정렬 */}
+                    <div className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] p-4 rounded-2xl">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-2 h-2 rounded-full bg-[#FEE500] animate-pulse shadow-[0_0_8px_rgba(254,229,0,0.6)]" />
+                        <span className="text-[13.5px] font-extrabold text-[#FEE500] font-sans tracking-wide drop-shadow-sm">카카오계정 연동됨</span>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setIsSettingsOpen(false);
+                          setIsDeleteAccountModalOpen(true);
+                        }}
+                        className="text-[11px] font-extrabold text-red-500/80 hover:text-red-400 active:scale-95 transition-all underline underline-offset-4 tracking-wider"
+                      >
+                        회원 탈퇴
+                      </button>
                     </div>
 
                     {/* 로그아웃 버튼 */}
@@ -6334,6 +6469,43 @@ return (
                       className="w-full py-3.5 rounded-xl bg-white/[0.03] border border-white/10 text-stone-400 font-bold text-[12.5px] tracking-wide active:scale-[0.98] transition-all hover:bg-white/[0.06]"
                     >
                       나중에 하기
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 8.5 회원탈퇴 최종 확인 모달 */}
+            {isDeleteAccountModalOpen && (
+              <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[110] flex items-center justify-center p-6 animate-fade-in pointer-events-auto">
+                <div 
+                  className="bg-[#0c0a08]/98 border border-red-500/30 rounded-[28px] w-full max-w-[320px] p-6 shadow-[0_20px_60px_rgba(255,0,0,0.15)] flex flex-col gap-5 animate-scale-up"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex flex-col items-center gap-3.5 text-center">
+                    <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </div>
+                    <h3 className="text-red-400 font-myeongjo font-bold text-[16px] tracking-wide mt-1">바이블그램 성소 탈퇴</h3>
+                    <p className="text-[12px] text-stone-300 font-sans leading-relaxed mt-1 text-center">
+                      탈퇴 즉시 성도님이 봉헌하신 성화 말씀 카드, 공감(하트) 내역, 소중한 댓글 데이터가 Supabase DB에서 즉시 영구 삭제되며 복구가 불가능합니다.
+                      {"\n\n"}
+                      모든 개인 데이터의 즉시 파기에 동의하고 탈퇴하시겠습니까?
+                    </p>
+                  </div>
+                  
+                  <div className="flex flex-col gap-2 w-full mt-1">
+                    <button
+                      onClick={handleDeleteAccount}
+                      className="w-full py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 text-white font-extrabold text-[12.5px] tracking-wide active:scale-[0.98] transition-all shadow-[0_4px_12px_rgba(239,68,68,0.2)]"
+                    >
+                      모든 정보 삭제 및 탈퇴 완료
+                    </button>
+                    <button
+                      onClick={() => setIsDeleteAccountModalOpen(false)}
+                      className="w-full py-3.5 rounded-xl bg-white/[0.03] border border-white/10 text-stone-400 font-bold text-[12.5px] tracking-wide active:scale-[0.98] transition-all hover:bg-white/[0.06]"
+                    >
+                      성소에 남기 (취소)
                     </button>
                   </div>
                 </div>
