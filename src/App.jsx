@@ -4316,6 +4316,9 @@ const handleToggleLikeGlobal = async (cardId) => {
       setFeedCards(prev => prev.map(c => c.id === cardId ? { ...c, likes: c.likes + (nextLiked ? 1 : -1) } : c));
       setMyCreatedCards(prev => prev.map(c => c.id === cardId ? { ...c, likes: c.likes + (nextLiked ? 1 : -1) } : c));
       setSavedCards(prev => prev.map(c => c.id === cardId ? { ...c, likes: c.likes + (nextLiked ? 1 : -1) } : c));
+      if (selectedCard && selectedCard.id === cardId) {
+        setSelectedCard(prev => prev ? { ...prev, likes: prev.likes + (nextLiked ? 1 : -1) } : null);
+      }
       
       try {
         if (nextLiked) {
