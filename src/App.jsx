@@ -3704,7 +3704,15 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
           console.log("PWA Service Worker registered scoping:", reg.scope);
           const isPushLocal = localStorage.getItem('biblegram_push_enabled') === 'true';
           if (isPushLocal && user && user.id) {
-            registerPushSubscription(reg);
+            const now = Date.now();
+            const userRenewKey = `biblegram_last_push_renew_check_${user.id}`;
+            const lastCheck = localStorage.getItem(userRenewKey);
+            const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+            
+            if (!lastCheck || now - Number(lastCheck) > sevenDaysMs) {
+              registerPushSubscription(reg);
+              localStorage.setItem(userRenewKey, String(now));
+            }
           }
         })
         .catch((err) => {
@@ -3821,7 +3829,8 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
       }
     } else if (Notification.permission === 'granted') {
       const now = Date.now();
-      const lastCheck = localStorage.getItem('biblegram_last_push_renew_check');
+      const userRenewKey = `biblegram_last_push_renew_check_${targetUser.id}`;
+      const lastCheck = localStorage.getItem(userRenewKey);
       const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
       
       if (!lastCheck || now - Number(lastCheck) > sevenDaysMs) {
@@ -3829,7 +3838,7 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
           const reg = await navigator.serviceWorker.ready.catch(() => null);
           if (reg) {
             await registerPushSubscription(reg);
-            localStorage.setItem('biblegram_last_push_renew_check', String(now));
+            localStorage.setItem(userRenewKey, String(now));
           }
         }
       }
