@@ -135,4 +135,4 @@ export default defineConfig(({ mode }) => {
     ]
   }
 })
-// Trigger restart 1
+// Trigger restart 2 - force Vercel rebuild with correct Kakao JS key
