@@ -5902,7 +5902,7 @@ return (
                         <div className="flex flex-col gap-0.5">
                           <span className="text-[13.5px] font-bold text-stone-200 font-sans tracking-wide">성소 소식 및 버전 정보</span>
                           <span className="text-[9.5px] text-stone-500 font-sans leading-normal">
-                            현재 버전: v1.6.1
+                            현재 버전: v1.8.0
                           </span>
                         </div>
                       </div>
@@ -6266,7 +6266,7 @@ return (
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex justify-between items-center pb-3 border-b border-[#DFBA73]/20">
-                    <h3 className="text-[#DFBA73] font-myeongjo font-bold text-[16px] tracking-wide">업데이트 내역 (v1.7.0)</h3>
+                    <h3 className="text-[#DFBA73] font-myeongjo font-bold text-[16px] tracking-wide">업데이트 내역 (v1.8.0)</h3>
                     <button 
                       onClick={() => setIsUpdateModalOpen(false)}
                       className="text-[#DFBA73]/60 hover:text-white transition-colors"
@@ -6278,7 +6278,22 @@ return (
                   <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4.5 text-left text-[12.5px] text-stone-300 font-sans leading-relaxed max-h-[50vh] scrollbar-thin">
                     <div>
                       <div className="flex items-center gap-2 mb-1.5">
-                        <span className="px-1.5 py-0.5 rounded text-[9.5px] font-extrabold bg-[#DFBA73]/20 text-[#DFBA73] border border-[#DFBA73]/30">v1.7.0</span>
+                        <span className="px-1.5 py-0.5 rounded text-[9.5px] font-extrabold bg-[#DFBA73]/20 text-[#DFBA73] border border-[#DFBA73]/30">v1.8.0</span>
+                        <span className="text-[10px] text-stone-500 font-medium">2026.05.27</span>
+                      </div>
+                      <p className="font-bold text-stone-200 text-[13px] mb-1">소통 강화 및 영적 교제 안정화</p>
+                      <ul className="list-disc list-inside pl-1 text-[11px] text-stone-400 flex flex-col gap-1">
+                        <li>말씀 카드를 카카오톡으로 직접 전송할 수 있는 카카오톡 공유 SDK 연동을 마쳤습니다.</li>
+                        <li>오늘의 고백을 더욱 깊고 간결하게 묵상할 수 있도록 200자 제한 및 실시간 글자 수 안내 기능을 도입했습니다.</li>
+                        <li>설정 모달 내에서 본인의 데이터를 직접 정화할 수 있는 안전한 회원 탈퇴 시스템을 구축했습니다.</li>
+                        <li>특정 모바일 기기에서 발생하던 카카오 공유 4019 에러를 클라이언트 키 보안 보완을 통해 완벽히 해결했습니다.</li>
+                        <li>무소음 푸시 토큰의 영구 보존 주기를 7일 간격으로 정교하게 조율하여 기기 전력과 트래픽 부담을 최적화했습니다.</li>
+                      </ul>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="px-1.5 py-0.5 rounded text-[9.5px] font-extrabold bg-stone-800 text-stone-400 border border-stone-700">v1.7.0</span>
                         <span className="text-[10px] text-stone-500 font-medium">2026.05.25</span>
                       </div>
                       <p className="font-bold text-stone-200 text-[13px] mb-1">성소 브랜딩 및 로직 대개편</p>
