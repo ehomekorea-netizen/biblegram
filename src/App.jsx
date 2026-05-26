@@ -3213,7 +3213,7 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
       const { data, error } = await supabase
         .from('comments')
         .select('*')
-        .like('comment_text', `__BIBLEGRAM_NOTIF__:%:${checkUser.id}:%`)
+        .like('comment_text', `__BIBLEGRAM_NOTIF__:%:${checkUser.id}%`)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
