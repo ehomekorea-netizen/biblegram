@@ -3621,10 +3621,10 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // Kakao SDK 안전 초기화 (REST API 키 또는 JS 키 호환 대응)
+  // Kakao SDK 안전 초기화 (자바스크립트 키 직접 매핑으로 Vercel 환경 변수 누락 완전 차단)
   useEffect(() => {
     if (window.Kakao && !window.Kakao.isInitialized()) {
-      const kakaoKey = import.meta.env.VITE_KAKAO_JS_KEY || import.meta.env.VITE_KAKAO_REST_API_KEY || '49ae99f04c3b46ec6d7db256489c7a11';
+      const kakaoKey = import.meta.env.VITE_KAKAO_JS_KEY || 'b42261acdcd9ac2bc120fee5e264536f';
       try {
         window.Kakao.init(kakaoKey.trim());
         console.log("Kakao SDK Initialized successfully");
