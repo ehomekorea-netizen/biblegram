@@ -3061,22 +3061,11 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
     }, duration);
   };
   const fetchUserProfiles = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('nickname, profile_image');
-      if (!error && data) {
-        const profileMap = {};
-        data.forEach(u => {
-          if (u.nickname) {
-            profileMap[u.nickname] = u.profile_image || '';
-          }
-        });
-        setUserProfiles(profileMap);
-      }
-    } catch (err) {
-      console.error("Error fetching user profiles:", err);
-    }
+    // 40년차 시니어 최적화: 가입자 전원 풀스캔($O(N)$)을 영구 차단하고,
+    // 개별 피드 조회 시 JOIN된 작성자 프로필을 인메모리에 수집하여
+    // 메모리 및 네트워크 Egress를 획기적으로 보전합니다.
+    // (기존 UI 호환성을 유지하기 위해 빈 함수 껍데기로 보존)
+    return;
   };
 
   const fetchFeed = async () => {
@@ -3094,11 +3083,21 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
           author_id,
           likes_count,
           created_at,
+          users!author_id (nickname, profile_image),
           comments (id, comment_text, user_id)
         `)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
+
+      // 40년차 시니어 최적화: 유저 프로필 실시간 인메모리 맵핑 (풀스캔 차단)
+      const profileMap = {};
+      (data || []).forEach(item => {
+        if (item.users?.nickname) {
+          profileMap[item.users.nickname] = item.users.profile_image || '';
+        }
+      });
+      setUserProfiles(prev => ({ ...prev, ...profileMap }));
       
       const mapped = (data || []).map(item => {
         const commentsList = item.comments || [];
@@ -3173,12 +3172,22 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
         .from('cards')
         .select(`
           *,
+          users!author_id (nickname, profile_image),
           comments (id, comment_text, user_id)
         `)
         .eq('author_id', checkUser.id)
         .order('created_at', { ascending: false });
         
       if (error) throw error;
+
+      // 40년차 시니어 최적화: 유저 프로필 실시간 인메모리 맵핑 (풀스캔 차단)
+      const profileMap = {};
+      (data || []).forEach(item => {
+        if (item.users?.nickname) {
+          profileMap[item.users.nickname] = item.users.profile_image || '';
+        }
+      });
+      setUserProfiles(prev => ({ ...prev, ...profileMap }));
       const mapped = (data || []).map(c => {
         const commentsList = c.comments || [];
         const normalComments = commentsList.filter(
@@ -3401,12 +3410,22 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
             author_nickname,
             author_id,
             likes_count,
+            users!author_id (nickname, profile_image),
             comments (id, comment_text, user_id)
           )
         `)
         .eq('user_id', checkUser.id);
       
       if (error) throw error;
+
+      // 40년차 시니어 최적화: 유저 프로필 실시간 인메모리 맵핑 (풀스캔 차단)
+      const profileMap = {};
+      (data || []).forEach(item => {
+        if (item.cards?.users?.nickname) {
+          profileMap[item.cards.users.nickname] = item.cards.users.profile_image || '';
+        }
+      });
+      setUserProfiles(prev => ({ ...prev, ...profileMap }));
       
       const mapped = (data || [])
         .filter(item => item.cards)
@@ -5101,79 +5120,74 @@ return (
         ) : (
           <>
             {/* 성전 상단 프리미엄 헤더 라인 (상단 상태바 시계 영역 겹침 방지 보정 완료 - 피드 뷰 전용) */}
-            {view === 'feed' && (
-              <div className={`absolute top-0 left-0 right-0 h-[calc(64px+env(safe-area-inset-top))] bg-gradient-to-b from-[#050505] via-[#050505]/95 to-transparent z-[50] pointer-events-none flex flex-col justify-end pb-2 px-6 pt-[env(safe-area-inset-top)]`}>
-                <div className="flex items-center justify-between w-full">
-                  <div className="h-[1px] bg-gradient-to-r from-transparent via-[#DFBA73]/40 to-transparent flex-1 mr-4"></div>
-                  <span 
-                    className="text-[12.5px] font-myeongjo font-extrabold tracking-[0.25em] text-[#DFBA73]"
-                    style={{ textShadow: '0 0 10px rgba(223,186,115,0.4)' }}
-                  >
-                    LIGHT OF WORD
-                  </span>
-                  <div className="h-[1px] bg-gradient-to-r from-transparent via-[#DFBA73]/40 to-transparent flex-1 ml-4"></div>
-                </div>
-                <div className="w-full text-center mt-1">
-                  <span className="text-[7.5px] font-sans text-white/30 tracking-[0.3em] uppercase">Visual Devotional Sanctuary</span>
-                </div>
+            <div className={`absolute top-0 left-0 right-0 h-[calc(64px+env(safe-area-inset-top))] bg-gradient-to-b from-[#050505] via-[#050505]/95 to-transparent z-[50] pointer-events-none flex flex-col justify-end pb-2 px-6 pt-[env(safe-area-inset-top)] ${view === 'feed' ? '' : 'hidden'}`}>
+              <div className="flex items-center justify-between w-full">
+                <div className="h-[1px] bg-gradient-to-r from-transparent via-[#DFBA73]/40 to-transparent flex-1 mr-4"></div>
+                <span 
+                  className="text-[12.5px] font-myeongjo font-extrabold tracking-[0.25em] text-[#DFBA73]"
+                  style={{ textShadow: '0 0 10px rgba(223,186,115,0.4)' }}
+                >
+                  LIGHT OF WORD
+                </span>
+                <div className="h-[1px] bg-gradient-to-r from-transparent via-[#DFBA73]/40 to-transparent flex-1 ml-4"></div>
               </div>
-            )}
+              <div className="w-full text-center mt-1">
+                <span className="text-[7.5px] font-sans text-white/30 tracking-[0.3em] uppercase">Visual Devotional Sanctuary</span>
+              </div>
+            </div>
 
             {/* 1. 피드 뷰 영역 */}
-            {view === 'feed' && (
-              <div 
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-                className="flex-1 overflow-y-auto snap-y snap-mandatory hide-scrollbar bg-black relative"
-              >
-                {/* 인스타 스타일 당겨서 새로고침 골드 스피너 */}
-                {(pullDistance > 0 || isRefreshing) && (
-                  <div 
-                    className="absolute top-0 left-0 right-0 z-50 flex items-center justify-center pointer-events-none transition-all duration-150"
-                    style={{ 
-                      height: `${pullDistance}px`, 
-                      opacity: Math.min(1, pullDistance / 40),
-                      transform: `translateY(${Math.max(-20, pullDistance - 40)}px)`
-                    }}
-                  >
-                    <div className="flex flex-col items-center justify-center gap-1.5 pt-4">
-                      <div className={`w-6 h-6 rounded-full border-2 border-[#DFBA73]/20 border-t-[#DFBA73] ${isRefreshing ? 'animate-spin' : ''}`} />
-                      {pullDistance >= 50 && !isRefreshing && (
-                        <span className="text-[7.5px] font-sans text-[#DFBA73] tracking-[0.2em] uppercase font-bold">놓아서 새로고침</span>
-                      )}
-                    </div>
+            <div 
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              className={`flex-1 overflow-y-auto snap-y snap-mandatory hide-scrollbar bg-black relative ${view === 'feed' ? '' : 'hidden'}`}
+            >
+              {/* 인스타 스타일 당겨서 새로고침 골드 스피너 */}
+              {(pullDistance > 0 || isRefreshing) && (
+                <div 
+                  className="absolute top-0 left-0 right-0 z-50 flex items-center justify-center pointer-events-none transition-all duration-150"
+                  style={{ 
+                    height: `${pullDistance}px`, 
+                    opacity: Math.min(1, pullDistance / 40),
+                    transform: `translateY(${Math.max(-20, pullDistance - 40)}px)`
+                  }}
+                >
+                  <div className="flex flex-col items-center justify-center gap-1.5 pt-4">
+                    <div className={`w-6 h-6 rounded-full border-2 border-[#DFBA73]/20 border-t-[#DFBA73] ${isRefreshing ? 'animate-spin' : ''}`} />
+                    {pullDistance >= 50 && !isRefreshing && (
+                      <span className="text-[7.5px] font-sans text-[#DFBA73] tracking-[0.2em] uppercase font-bold">놓아서 새로고침</span>
+                    )}
                   </div>
-                )}
+                </div>
+              )}
 
-                {feedCards.map((card) => (
-                  <FeedCard 
-                    key={card.id} 
-                    card={card} 
-                    onShowToast={showToast}
-                    onToggleSave={handleToggleSave}
-                    isSaved={savedCards.some(c => c.id === card.id)}
-                    onNavigateProfile={handleNavigateProfile}
-                    likedCardsState={likedCardsState}
-                    onToggleLikeGlobal={handleToggleLikeGlobal}
-                    user={user}
-                    nickname={nickname}
-                    onCommentCountChange={handleCommentCountChangeGlobal}
-                    onShareCountChange={handleShareCountChangeGlobal}
-                    onDeleteCard={handleDeleteCard}
-                    userProfiles={userProfiles}
-                    isGlobalMuted={isGlobalMuted}
-                    setIsGlobalMuted={setIsGlobalMuted}
-                    openCommentsForCardId={openCommentsForCardId}
-                    onTriggerWebPush={triggerWebPush}
-                  />
-                ))}
-              </div>
-            )}
+              {feedCards.map((card) => (
+                <FeedCard 
+                  key={card.id} 
+                  card={card} 
+                  onShowToast={showToast}
+                  onToggleSave={handleToggleSave}
+                  isSaved={savedCards.some(c => c.id === card.id)}
+                  onNavigateProfile={handleNavigateProfile}
+                  likedCardsState={likedCardsState}
+                  onToggleLikeGlobal={handleToggleLikeGlobal}
+                  user={user}
+                  nickname={nickname}
+                  onCommentCountChange={handleCommentCountChangeGlobal}
+                  onShareCountChange={handleShareCountChangeGlobal}
+                  onDeleteCard={handleDeleteCard}
+                  userProfiles={userProfiles}
+                  isGlobalMuted={isGlobalMuted}
+                  setIsGlobalMuted={setIsGlobalMuted}
+                  openCommentsForCardId={openCommentsForCardId}
+                  onTriggerWebPush={triggerWebPush}
+                />
+              ))}
+            </div>
 
             {/* 2. 묵상 생성 및 입력 뷰 영역 */}
-            {view === 'create' && (
-              <div className={`flex-1 flex flex-col bg-[#FDFBF7] text-[#2C241B] p-6 pt-[calc(10px+env(safe-area-inset-top))] z-10 pb-[calc(200px+env(safe-area-inset-bottom))] overflow-y-auto hide-scrollbar ${isLargeFont ? 'large-font' : ''}`}>
+            <div className={`flex-1 flex flex-col bg-[#FDFBF7] text-[#2C241B] p-6 pt-[calc(10px+env(safe-area-inset-top))] z-10 pb-[calc(200px+env(safe-area-inset-bottom))] overflow-y-auto hide-scrollbar ${isLargeFont ? 'large-font' : ''} ${view === 'create' ? '' : 'hidden'}`}>
                 <div className="relative mb-6 w-full pt-1.5 flex flex-col items-center text-center">
                   <span className="text-[9px] text-[#A37B3F] font-semibold tracking-[0.2em] uppercase mb-0.5 block">Visual Devotion</span>
                   <h1 className={`font-myeongjo font-extrabold text-[#1A1510] tracking-tight transition-all text-center w-[80%] mx-auto ${isLargeFont ? 'text-[26px]' : 'text-[22px]'}`}>
@@ -5312,7 +5326,6 @@ return (
                 {/* 하단 도크 바 가림 방지 여백 */}
                 <div className="h-16 shrink-0" />
               </div>
-            )}
 
             {/* 3. 영적 주마등 인트로 로딩 */}
             {view === 'loading' && (
@@ -5398,17 +5411,16 @@ return (
             )}
 
             {/* 6. 성소 보관 서재 프로필 뷰 (타인 조회 대응 완료) */}
-            {view === 'profile' && (
-              <div 
-                onTouchStart={handleProfileTouchStart}
-                onTouchMove={handleProfileTouchMove}
-                onTouchEnd={handleProfileTouchEnd}
-                style={{
-                  transform: profilePullDistance > 0 ? `translateY(${profilePullDistance}px)` : 'none',
-                  transition: profilePullDistance === 0 ? 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)' : 'none'
-                }}
-                className="flex-1 flex flex-col bg-[#050505] z-10 pb-[calc(72px+env(safe-area-inset-bottom))] overflow-y-auto hide-scrollbar relative"
-              >
+            <div 
+              onTouchStart={handleProfileTouchStart}
+              onTouchMove={handleProfileTouchMove}
+              onTouchEnd={handleProfileTouchEnd}
+              style={{
+                transform: profilePullDistance > 0 ? `translateY(${profilePullDistance}px)` : 'none',
+                transition: profilePullDistance === 0 ? 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)' : 'none'
+              }}
+              className={`flex-1 flex flex-col bg-[#050505] z-10 pb-[calc(72px+env(safe-area-inset-bottom))] overflow-y-auto hide-scrollbar relative ${view === 'profile' ? '' : 'hidden'}`}
+            >
                 {/* 내 서재 당겨서 새로고침 미니 인디케이터 (토스트 배너 없는 시각 효과) */}
                 {profilePullDistance > 0 && (
                   <div 
@@ -5682,7 +5694,6 @@ return (
                   오디세이 묵상 하우스 &bull; ALL RIGHTS RESERVED
                 </p>
               </div>
-            )}
 
             {/* 7. 프리미엄 도크 바 네비게이션 (바텀 세이프 에어리어 및 수직 중심 칼정렬 보완) */}
             {view !== 'loading' && view !== 'result' && (
