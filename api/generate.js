@@ -202,21 +202,138 @@ export default async function handler(req, res) {
       if (!reference) {
         return res.status(400).json({ error: 'Reference is required for search action' });
       }
-      prompt = `사용자가 "${reference}"에 해당하는 성경 구절을 검색하려고 합니다.
-개역개정 번역본 기준으로 사용자가 요청한 정확한 장절 범위의 본문만을 찾아 반환해 주세요.
 
-[★ 절대 필수 준수 지침 ★]
-1. 존재 여부 판단: 사용자가 요청한 장(Chapter) 또는 절(Verse) 범위가 해당 성경 책에 존재하지 않는 경우(예: 이사야 18장에 존재하지 않는 33절을 요청하는 등), 반드시 "exists": false로 지정하고, "error" 필드에 "이사야 18:33절은 존재하지 않는 구절입니다." 형태의 한국어 명확한 오류 문구를 채워 반환하십시오.
-2. 단일 절 요청 처리: 사용자가 특정 절 하나만 지정하고 실존하는 경우, 절대로 다른 절을 붙이지 말고 오직 해당 1개의 절만 완벽하게 반환하고, "exists": true로 지정하십시오.
-   - 예: "창세기 1장 1절"을 검색하면 오직 1절 본문인 "태초에 하나님이 천지를 창조하시니라." 한 문장만 반환해야 합니다. 뒤따르는 2절이나 3절은 절대 포함하지 마십시오.
-3. 범위 절 요청 처리: 사용자가 명시적인 범위(예: "창세기 1:6~9" 등)를 지정하고 실존하는 경우에만 해당 범위 내의 절들을 빠짐없이 순서대로 합쳐서 반환하고, "exists": true로 지정하십시오.
-4. 사설이나 설명, 마크다운 기호를 모두 제외하고 아래 JSON 형식으로만 정확히 응답하십시오:
-{
-  "exists": true 또는 false (성경 구절 존재 여부),
-  "text": "정확한 성경 구절 본문 (실존할 때만 기입, 존재하지 않으면 빈 문자열)",
-  "error": "존재하지 않을 때 성도님께 보여줄 에러 메시지 (실존하면 빈 문자열)"
-}`;
-      systemInstruction = "당신은 개역개정 성경 구절을 글자 하나 틀리지 않고 정확하게 검색해 주는 정확하고 엄격한 성경 데이터베이스 에이전트입니다. 창작이나 추론, 임의 덧붙임 없이 오직 사용자가 명시한 정확한 장절 본문만을 반환해야 합니다. 존재하지 않는 구절인 경우 엄격히 exists: false를 식별해 주십시오.";
+      try {
+        const fs = (await import('fs')).default;
+        const path = (await import('path')).default;
+        const bibleDataPath = path.join(process.cwd(), 'api', 'bible-ko.json');
+        
+        if (!fs.existsSync(bibleDataPath)) {
+          return res.status(500).json({ error: '성경 데이터베이스 파일을 서버에서 찾을 수 없습니다.' });
+        }
+        
+        const bibleData = JSON.parse(fs.readFileSync(bibleDataPath, 'utf8'));
+
+        // 1. 성경 책과 장절 파싱 (예: "요한복음 3:16", "역대상 3:8", "창세기 1:1-2")
+        const trimmedRef = reference.trim();
+        const refMatch = trimmedRef.match(/^([a-zA-Z가-힣0-9\s]+?)\s+(\d+)\s*:\s*([0-9\s\-~,]+)$/);
+        
+        if (!refMatch) {
+          return res.status(200).json({
+            exists: false,
+            text: "",
+            error: `올바른 성경 장절 형식(예: 요한복음 3:16)으로 기입해 주세요.`
+          });
+        }
+
+        const bookNameInput = refMatch[1].trim();
+        const chapterNum = parseInt(refMatch[2], 10);
+        const verseInput = refMatch[3].trim();
+
+        // 성경 책 정경 순서 맵핑 테이블 (0 ~ 65)
+        const BIBLE_BOOKS = [
+          "창세기", "출애굽기", "레위기", "민수기", "신명기", "여호수아", "사사기", "룻기", 
+          "사무엘상", "사무엘하", "열왕기상", "열왕기하", "역대기상", "역대기하", "에스라", 
+          "느헤미야", "에스더", "욥기", "시편", "잠언", "전도서", "아가", "이사야", "예레미야", 
+          "예레미야애가", "에스겔", "다니엘", "호세아", "요엘", "아모스", "오바댜", "요나", 
+          "미가", "나훔", "하박국", "스바냐", "학개", "스가랴", "말라기", "마태복음", "마가복음", 
+          "누가복음", "요한복음", "사도행전", "로마서", "고린도전서", "고린도후서", "갈라디아서", 
+          "에베소서", "빌립보서", "골로새서", "데살로니가전서", "데살로니가후서", "디모데전서", 
+          "디모데후서", "디도서", "빌레몬서", "히브리서", "야고보서", "베드로전서", "베드로후서", 
+          "요한일서", "요한이서", "요한삼서", "유다서", "요한계시록"
+        ];
+
+        const BIBLE_MAP = {
+          "창": "창세기", "출": "출애굽기", "레": "레위기", "민": "민수기", "신": "신명기",
+          "수": "여호수아", "여호": "여호수아", "삿": "사사기", "사사": "사사기", "룻": "룻기",
+          "삼상": "사무엘상", "삼하": "사무엘하", "왕상": "열왕기상", "왕하": "열왕기하",
+          "대상": "역대기상", "역대상": "역대기상", "대하": "역대기하", "역대하": "역대기하",
+          "스": "에스라", "느": "느헤미야", "에": "에스더", "욥": "욥기", "시": "시편",
+          "잠": "잠언", "전": "전도서", "아": "아가", "사": "이사야", "렘": "예레미야",
+          "애": "예레미야애가", "렘애": "예레미야애가", "겔": "에스겔", "단": "다니엘",
+          "호": "호세아", "욜": "요엘", "암": "아모스", "옵": "오바댜",
+          "욘": "요나", "미": "미가", "나": "나훔", "합": "하박국", "습": "스바냐",
+          "학": "학개", "슥": "스가랴", "말": "말라기", "마": "마태복음", "마태": "마태복음",
+          "막": "마가복음", "마가": "마가복음", "누": "누가복음", "누가": "누가복음",
+          "요": "요한복음", "요한": "요한복음", "행": "사도행전", "롬": "로마서",
+          "고전": "고린도전서", "고후": "고린도후서", "갈": "갈라디아서", "엡": "에베소서",
+          "빌": "빌립보서", "골": "골로새서", "살전": "데살로니가전서", "살후": "데살로니가후서",
+          "딤전": "디모데전서", "딤후": "디모데후서", "딛": "디도서", "몬": "빌레몬서",
+          "히": "히브리서", "야": "야고보서", "벧전": "베드로전서", "벧후": "베드로후서",
+          "요일": "요한일서", "요이": "요한이서", "요삼": "요한삼서", "유": "유다서",
+          "계": "요한계시록", "계시록": "요한계시록"
+        };
+
+        const standardBookName = BIBLE_MAP[bookNameInput] || bookNameInput;
+        const bookIdx = BIBLE_BOOKS.indexOf(standardBookName);
+
+        if (bookIdx === -1) {
+          return res.status(200).json({
+            exists: false,
+            text: "",
+            error: `"${bookNameInput}"은(는) 성경 66권 목록에 존재하지 않는 이름입니다.`
+          });
+        }
+
+        const bookData = bibleData[bookIdx];
+        const chapters = bookData.chapters;
+
+        // 장 범위 유효성 체크
+        if (chapterNum < 1 || chapterNum > chapters.length) {
+          return res.status(200).json({
+            exists: false,
+            text: "",
+            error: `${standardBookName} ${chapterNum}장은 존재하지 않는 구절 범위입니다.`
+          });
+        }
+
+        const verses = chapters[chapterNum - 1]; // 0-indexed
+
+        // 2. 절 범위 파싱 (단일 절 및 범위 절)
+        let startVerse = 1;
+        let endVerse = 1;
+        let isRange = false;
+
+        const rangeMatch = verseInput.match(/^(\d+)\s*[\-~]\s*(\d+)$/);
+        if (rangeMatch) {
+          startVerse = parseInt(rangeMatch[1], 10);
+          endVerse = parseInt(rangeMatch[2], 10);
+          isRange = true;
+        } else {
+          startVerse = parseInt(verseInput, 10);
+          endVerse = startVerse;
+        }
+
+        if (isNaN(startVerse) || startVerse < 1 || startVerse > verses.length || endVerse < startVerse || endVerse > verses.length) {
+          return res.status(200).json({
+            exists: false,
+            text: "",
+            error: `${standardBookName} ${chapterNum}장 ${verseInput}절은 존재하지 않는 범위입니다.`
+          });
+        }
+
+        // 3. 본문 텍스트 합치기 및 추출
+        let matchedText = "";
+        if (isRange) {
+          const textSegments = [];
+          for (let v = startVerse; v <= endVerse; v++) {
+            const cleanText = verses[v - 1].replace(/\s+/g, ' ').replace(/ !/g, '!').trim();
+            textSegments.push(`${v}절 ${cleanText}`);
+          }
+          matchedText = textSegments.join(" ");
+        } else {
+          matchedText = verses[startVerse - 1].replace(/\s+/g, ' ').replace(/ !/g, '!').trim();
+        }
+
+        return res.status(200).json({
+          exists: true,
+          text: matchedText,
+          error: ""
+        });
+      } catch (err) {
+        console.error("Local Bible DB search failed:", err);
+        return res.status(500).json({ error: "성경 데이터베이스 검색 도중 치명적인 에러가 발생했습니다." });
+      }
     } else if (action === 'create') {
       if (!verseText) {
         return res.status(400).json({ error: 'Verse text is required for create action' });
