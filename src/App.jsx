@@ -4738,6 +4738,18 @@ const handleSearchVerse = async () => {
       }
     }
     
+    // [로컬 캐시 체크] 이미 가져온 개역개정 본문인지 확인!
+    const cacheKey = `biblegram_cache_${normalizedRef}`;
+    const cachedText = localStorage.getItem(cacheKey);
+    if (cachedText) {
+      setVerseText(cachedText);
+      setVerseRefInput(normalizedRef);
+      localStorage.setItem('biblegram_draft_ref', normalizedRef);
+      localStorage.setItem('biblegram_draft_text', cachedText);
+      showToast("성스러운 말씀을 캐시에서 즉시 불러왔습니다.", "success");
+      return;
+    }
+    
     setIsSearching(true);
     try {
       const searchResult = await fetchBibleTextFromAI(normalizedRef);
@@ -4753,6 +4765,9 @@ const handleSearchVerse = async () => {
       const combined = `${text} (${normalizedRef})`;
       
       setVerseText(combined);
+      // 로컬 스토리지 캐시에 성공적으로 수령된 텍스트 저장!
+      localStorage.setItem(cacheKey, combined);
+
       // 정규화된 주소를 UI 입력창과 스토리지에 역동기화
       setVerseRefInput(normalizedRef);
       localStorage.setItem('biblegram_draft_ref', normalizedRef);

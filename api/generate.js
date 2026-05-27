@@ -205,17 +205,15 @@ export default async function handler(req, res) {
       }
 
       try {
-        // 1. 성경 책과 장절 파싱 (예: "요한복음 3:16", "역대상 3:8", "창세기 1:1-2", "창세기 1:1 ~ 1:3")
         const trimmedRef = reference.trim();
         
+        // 1. 선행 가드: 3개 절 이상 및 서로 다른 장 범위인지 정규식으로 기계적 검증 (프론트/백 이중 방어)
         let bookNameInput = "";
         let chapterNum = 1;
-        let verseInput = "";
         let startVerse = 1;
         let endVerse = 1;
         let isRange = false;
 
-        // 패턴 A: "창세기 1:1 ~ 1:3" 처럼 장 번호가 양쪽에 중복 기재된 범위 형태 파싱
         const complexMatch = trimmedRef.match(/^(.+?)\s+(\d+)\s*:\s*(\d+)\s*[\-~]\s*(\d+)\s*:\s*(\d+)$/);
         
         if (complexMatch) {
@@ -232,7 +230,6 @@ export default async function handler(req, res) {
               error: "성도님, 깊은 집중을 위해 성경 말씀은 같은 장(Chapter) 내에서만 연속 탐색이 가능합니다."
             });
           }
-          
           if (endVerse - startVerse > 1 || endVerse < startVerse) {
             return res.status(200).json({
               exists: false,
@@ -240,13 +237,10 @@ export default async function handler(req, res) {
               error: "성도님, 말씀 카드의 수려한 황금 비율과 깊은 묵상을 위해 한 번에 최대 2개 절까지만 탐색이 가능합니다."
             });
           }
-          
           chapterNum = startChap;
           isRange = startVerse !== endVerse;
         } else {
-          // 패턴 B: "창세기 1:1-2" 또는 "요한복음 3:16" 처럼 장이 한 번만 표기된 단일/범위 형태 파싱
           const refMatch = trimmedRef.match(/^(.+?)\s+(\d+)\s*:\s*([0-9\s\-~,]+)$/);
-          
           if (!refMatch) {
             return res.status(200).json({
               exists: false,
@@ -257,70 +251,8 @@ export default async function handler(req, res) {
 
           bookNameInput = refMatch[1].trim();
           chapterNum = parseInt(refMatch[2], 10);
-          verseInput = refMatch[3].trim();
-        }
+          const verseInput = refMatch[3].trim();
 
-        // 성경 책 정경 순서 맵핑 테이블 (0 ~ 65)
-        const BIBLE_BOOKS = [
-          "창세기", "출애굽기", "레위기", "민수기", "신명기", "여호수아", "사사기", "룻기", 
-          "사무엘상", "사무엘하", "열왕기상", "열왕기하", "역대기상", "역대기하", "에스라", 
-          "느헤미야", "에스더", "욥기", "시편", "잠언", "전도서", "아가", "이사야", "예레미야", 
-          "예레미야애가", "에스겔", "다니엘", "호세아", "요엘", "아모스", "오바댜", "요나", 
-          "미가", "나훔", "하박국", "스바냐", "학개", "스가랴", "말라기", "마태복음", "마가복음", 
-          "누가복음", "요한복음", "사도행전", "로마서", "고린도전서", "고린도후서", "갈라디아서", 
-          "에베소서", "빌립보서", "골로새서", "데살로니가전서", "데살로니가후서", "디모데전서", 
-          "디모데후서", "디도서", "빌레몬서", "히브리서", "야고보서", "베드로전서", "베드로후서", 
-          "요한일서", "요한이서", "요한삼서", "유다서", "요한계시록"
-        ];
-
-        const BIBLE_MAP = {
-          "창": "창세기", "출": "출애굽기", "레": "레위기", "민": "민수기", "신": "신명기",
-          "수": "여호수아", "여호": "여호수아", "삿": "사사기", "사사": "사사기", "룻": "룻기",
-          "삼상": "사무엘상", "삼하": "사무엘하", "왕상": "열왕기상", "왕하": "열왕기하",
-          "대상": "역대기상", "역대상": "역대기상", "대하": "역대기하", "역대하": "역대기하",
-          "스": "에스라", "느": "느헤미야", "에": "에스더", "욥": "욥기", "시": "시편",
-          "잠": "잠언", "전": "전도서", "아": "아가", "사": "이사야", "렘": "예레미야",
-          "애": "예레미야애가", "렘애": "예레미야애가", "겔": "에스겔", "단": "다니엘",
-          "호": "호세아", "욜": "요엘", "암": "아모스", "옵": "오바댜",
-          "욘": "요나", "미": "미가", "나": "나훔", "합": "하박국", "습": "스바냐",
-          "학": "학개", "슥": "스가랴", "말": "말라기", "마": "마태복음", "마태": "마태복음",
-          "막": "마가복음", "마가": "마가복음", "누": "누가복음", "누가": "누가복음",
-          "요": "요한복음", "요한": "요한복음", "행": "사도행전", "롬": "로마서",
-          "고전": "고린도전서", "고후": "고린도후서", "갈": "갈라디아서", "엡": "에베소서",
-          "빌": "빌립보서", "골": "골로새서", "살전": "데살로니가전서", "살후": "데살로니가후서",
-          "딤전": "디모데전서", "딤후": "디모데후서", "딛": "디도서", "몬": "빌레몬서",
-          "히": "히브리서", "야": "야고보서", "벧전": "베드로전서", "벧후": "베드로후서",
-          "요일": "요한일서", "요이": "요한이서", "요삼": "요한삼서", "유": "유다서",
-          "계": "요한계시록", "계시록": "요한계시록"
-        };
-
-        const standardBookName = BIBLE_MAP[bookNameInput] || bookNameInput;
-        const bookIdx = BIBLE_BOOKS.indexOf(standardBookName);
-
-        if (bookIdx === -1) {
-          return res.status(200).json({
-            exists: false,
-            text: "",
-            error: `"${bookNameInput}"은(는) 성경 66권 목록에 존재하지 않는 이름입니다.`
-          });
-        }
-
-        const bookData = bibleData[bookIdx];
-        const chapters = bookData.chapters;
-
-        // 장 범위 유효성 체크
-        if (chapterNum < 1 || chapterNum > chapters.length) {
-          return res.status(200).json({
-            exists: false,
-            text: "",
-            error: `${standardBookName} ${chapterNum}장은 존재하지 않는 구절 범위입니다.`
-          });
-        }
-
-        const verses = chapters[chapterNum - 1]; // 0-indexed
-
-        // 2. 절 범위 가드 및 2개 절 초과 차단
-        if (!complexMatch) {
           const rangeMatch = verseInput.match(/^(\d+)\s*[\-~]\s*(\d+)$/);
           if (rangeMatch) {
             startVerse = parseInt(rangeMatch[1], 10);
@@ -338,48 +270,64 @@ export default async function handler(req, res) {
             startVerse = parseInt(verseInput, 10);
             endVerse = startVerse;
           }
-        } else {
-          // complexMatch일 때는 선행 파서에서 이미 startVerse, endVerse, isRange를 전부 계산 및 한도 검증 완료함
         }
 
-        if (isNaN(startVerse) || startVerse < 1 || startVerse > verses.length || endVerse < startVerse || endVerse > verses.length) {
-          return res.status(200).json({
-            exists: false,
-            text: "",
-            error: `${standardBookName} ${chapterNum}장 ${startVerse}절 ~ ${endVerse}절은 존재하지 않는 범위입니다.`
-          });
-        }
+        // 2. OpenAI GPT-4o-mini에게 "개역개정" 판본의 정확한 성구 요청
+        const searchPrompt = `대한성서공회의 공식 [개역개정] 성경 번역본에서 아래 지정된 장절 범위의 본문 텍스트를 정확하게 추출해 주세요.
+성경 구절 범위: ${trimmedRef}
 
-        // 3. 본문 텍스트 합치기 및 추출
-        let matchedText = "";
-        if (isRange) {
-          const textSegments = [];
-          for (let v = startVerse; v <= endVerse; v++) {
-            const cleanText = verses[v - 1].replace(/\s+/g, ' ').replace(/ !/g, '!').trim();
-            textSegments.push(cleanText);
-          }
-          matchedText = textSegments.join(" ");
-        } else {
-          matchedText = verses[startVerse - 1].replace(/\s+/g, ' ').replace(/ !/g, '!').trim();
-        }
+[중요 지침]
+1. 반드시 대한민국 개신교 교단에서 공식 사용하는 [개역개정] 번역본의 원본 본문 텍스트여야 합니다. (개역한글의 '패괴', '강포' 대신 '부패', '포악' 등으로 올바르게 수정된 개역개정 텍스트여야 합니다.)
+2. 다중 절 범위(예: 요한복음 1:1-2)인 경우, 절 번호 접두사(예: '1절', '2절' 또는 '1.', '2.')를 절대로 텍스트에 포함하지 말고, 두 절의 본문만 자연스러운 하나의 공백으로 연결하여 하나의 완전한 텍스트로 합쳐 주십시오.
+3. 구절이 실제로 존재하지 않는 경우, "exists": false로 설정하십시오.
+4. 만약 검색된 성경 구절의 총 글자 수가 160자를 넘어가면 "error": "성경 구절의 총 분량이 말씀 카드 미학 규격(최대 160자)을 초과합니다. 조금 더 정제된 구절로 묵상해 보세요.", "exists": false를 반환하십시오.
 
-        // [비주얼 & TTS 비용 가드] 총 글자 수 160자 제한
-        if (matchedText.length > 160) {
-          return res.status(200).json({
-            exists: false,
-            text: "",
-            error: "성경 구절의 총 분량이 말씀 카드 미학 규격(최대 160자)을 초과합니다. 조금 더 정제된 구절로 묵상해 보세요."
-          });
-        }
+[JSON 반환 형식]
+{
+  "exists": true 또는 false,
+  "text": "절 번호가 완전히 배제된 자연스럽게 결합된 개역개정 본문 텍스트",
+  "error": "오류 발생 시에만 기입하는 안내 메시지 (정상 작동 시에는 빈 문자열)"
+}`;
 
-        return res.status(200).json({
-          exists: true,
-          text: matchedText,
-          error: ""
+        const messages = [
+          { role: 'system', content: "당신은 대한성서공회의 공식 [개역개정] 성경 본문을 완벽하게 기억하고 있는 신뢰할 수 있는 성서 데이터 제공 서버입니다. 오직 지정된 JSON 형식으로만 응답하며 본문의 글자 하나, 쉼표 하나까지 개역개정 판본의 텍스트와 100% 일치해야 합니다." },
+          { role: 'user', content: searchPrompt }
+        ];
+
+        const openaiPayload = {
+          model: 'gpt-4o-mini',
+          messages,
+          temperature: 0.0,
+          response_format: { type: 'json_object' }
+        };
+
+        const url = 'https://api.openai.com/v1/chat/completions';
+        const apiResponse = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openaiApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(openaiPayload)
         });
+
+        if (!apiResponse.ok) {
+          throw new Error(`OpenAI API error: ${apiResponse.statusText}`);
+        }
+
+        const result = await apiResponse.json();
+        let rawText = result.choices[0].message.content.trim();
+        rawText = rawText.replace(/```json\n?/g, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(rawText);
+
+        return res.status(200).json(parsed);
       } catch (err) {
-        console.error("Local Bible DB search failed:", err);
-        return res.status(500).json({ error: "성경 데이터베이스 검색 도중 치명적인 에러가 발생했습니다." });
+        console.error("OpenAI Bible search failed:", err);
+        return res.status(200).json({
+          exists: false,
+          text: "",
+          error: "성경 구절을 탐색하는 도중 서버 지연이 발생했습니다. 다시 시도해 주시거나 수동으로 기입해 주세요."
+        });
       }
     } else if (action === 'create') {
       if (!verseText) {
