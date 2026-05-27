@@ -440,8 +440,17 @@ const normalizeBibleReference = (input) => {
     return `${matchedBook} ${chapter}`;
   } else if (digits.length === 2) {
     return `${matchedBook} ${chapter}:${digits[1]}`;
-  } else {
+  } else if (digits.length === 3) {
     return `${matchedBook} ${chapter}:${digits[1]}-${digits[2]}`;
+  } else if (digits.length === 4) {
+    // "1:1 ~ 1:3" 처럼 장 번호가 중복 기입된 경우 올바른 절 범위로 정규화
+    if (digits[0] === digits[2]) {
+      return `${matchedBook} ${digits[0]}:${digits[1]}-${digits[3]}`;
+    }
+    // "1:1 ~ 2:3" 과 같이 서로 다른 장 범위인 경우 규격화하여 백엔드 가드 유도
+    return `${matchedBook} ${digits[0]}:${digits[1]}-${digits[2]}:${digits[3]}`;
+  } else {
+    return trimmed;
   }
 };
 
@@ -4690,6 +4699,44 @@ const handleSearchVerse = async () => {
     
     // 1. 성경 구절 입력값 정규화 (예: 이사야 18장 9절 -> 이사야 18:9)
     const normalizedRef = normalizeBibleReference(verseRefInput);
+
+    // 1.5. 3개 절 이상 및 다른 장 탐색 차단 가드 (이중 방어막)
+    const digits = normalizedRef.match(/\d+/g);
+    if (digits && digits.length >= 3) {
+      if (digits.length === 3) {
+        // 형식: 책 장:시작절-끝절 (예: 창세기 1:1-3)
+        const startVerse = parseInt(digits[1], 10);
+        const endVerse = parseInt(digits[2], 10);
+        if (endVerse - startVerse > 1) {
+          showToast("성도님, 말씀 카드의 수려한 황금 비율과 깊은 묵상을 위해 한 번에 최대 2개 절까지만 탐색이 가능합니다.", "error");
+          return;
+        }
+        if (endVerse < startVerse) {
+          showToast("올바른 장절 범위를 입력해 주세요.", "error");
+          return;
+        }
+      } else if (digits.length === 4) {
+        // 형식: 책 장:시작절-끝장:끝절 (예: 창세기 1:1-2:3)
+        const startChap = parseInt(digits[0], 10);
+        const startVerse = parseInt(digits[1], 10);
+        const endChap = parseInt(digits[2], 10);
+        const endVerse = parseInt(digits[3], 10);
+        
+        if (startChap !== endChap) {
+          showToast("성도님, 깊은 집중을 위해 성경 말씀은 같은 장(Chapter) 내에서만 연속 탐색이 가능합니다.", "error");
+          return;
+        }
+        
+        if (endVerse - startVerse > 1) {
+          showToast("성도님, 말씀 카드의 수려한 황금 비율과 깊은 묵상을 위해 한 번에 최대 2개 절까지만 탐색이 가능합니다.", "error");
+          return;
+        }
+        if (endVerse < startVerse) {
+          showToast("올바른 장절 범위를 입력해 주세요.", "error");
+          return;
+        }
+      }
+    }
     
     setIsSearching(true);
     try {
@@ -5345,10 +5392,10 @@ return (
                     </button>
                   </div>
                   
-                  <span className={`text-stone-500/90 block mb-1.5 leading-relaxed transition-all ${isLargeFont ? 'text-[13px]' : 'text-[10.5px]'}`}>
-                    한 구절만 찾거나(예: <b>요한복음 3:16</b>),
+                  <span className={`text-stone-500/90 block mb-1.5 leading-relaxed transition-all ${isLargeFont ? 'text-[13.5px]' : 'text-[10.5px]'}`}>
+                    한 구절에 온전히 깊이 집중하거나(예: <b>요한복음 3:16</b>),
                     <br />
-                    여러 구절을 연속해서 한 번에 찾을 수도 있습니다 (예: <b>창세기 1:6~9</b>).
+                    가장 수려한 카드 비주얼 비율을 위해 최대 2개 절까지 연속으로 찾으실 수 있습니다 (예: <b>창세기 1:1~2</b>).
                   </span>
                   <div className="flex space-x-2 w-full">
                     <input 
@@ -5359,8 +5406,8 @@ return (
                         setVerseRefInput(val);
                         localStorage.setItem('biblegram_draft_ref', val);
                       }}
-                      placeholder="예: 요한복음 3:16 또는 창세기 1:6~9"
-                      className={`min-w-0 flex-1 bg-[#F4EFE6] border-b border-[#D8CFC0] rounded-t-xl px-4 focus:outline-none focus:border-[#A37B3F] font-myeongjo placeholder:text-[#C5B9AA] transition-colors ${isLargeFont ? 'text-[21px] py-3' : 'text-[17px] py-2'}`}
+                      placeholder={isLargeFont ? "예: 요한복음 3:16 또는 창세기 1:1~2" : "예: 요 3:16 또는 창 1:1~2"}
+                      className={`min-w-0 flex-1 bg-[#F4EFE6] border-b border-[#D8CFC0] rounded-t-xl px-4 focus:outline-none focus:border-[#A37B3F] font-myeongjo placeholder:text-[#C5B9AA] transition-colors ${isLargeFont ? 'text-[21px] py-3 placeholder:text-[17px]' : 'text-[17px] py-2 placeholder:text-[14px]'}`}
                       onKeyDown={(e) => e.key === 'Enter' && handleSearchVerse()}
                     />
                     <button 

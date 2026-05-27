@@ -205,21 +205,60 @@ export default async function handler(req, res) {
       }
 
       try {
-        // 1. 성경 책과 장절 파싱 (예: "요한복음 3:16", "역대상 3:8", "창세기 1:1-2")
+        // 1. 성경 책과 장절 파싱 (예: "요한복음 3:16", "역대상 3:8", "창세기 1:1-2", "창세기 1:1 ~ 1:3")
         const trimmedRef = reference.trim();
-        const refMatch = trimmedRef.match(/^([a-zA-Z가-힣0-9\s]+?)\s+(\d+)\s*:\s*([0-9\s\-~,]+)$/);
         
-        if (!refMatch) {
-          return res.status(200).json({
-            exists: false,
-            text: "",
-            error: `올바른 성경 장절 형식(예: 요한복음 3:16)으로 기입해 주세요.`
-          });
-        }
+        let bookNameInput = "";
+        let chapterNum = 1;
+        let verseInput = "";
+        let startVerse = 1;
+        let endVerse = 1;
+        let isRange = false;
 
-        const bookNameInput = refMatch[1].trim();
-        const chapterNum = parseInt(refMatch[2], 10);
-        const verseInput = refMatch[3].trim();
+        // 패턴 A: "창세기 1:1 ~ 1:3" 처럼 장 번호가 양쪽에 중복 기재된 범위 형태 파싱
+        const complexMatch = trimmedRef.match(/^(.+?)\s+(\d+)\s*:\s*(\d+)\s*[\-~]\s*(\d+)\s*:\s*(\d+)$/);
+        
+        if (complexMatch) {
+          bookNameInput = complexMatch[1].trim();
+          const startChap = parseInt(complexMatch[2], 10);
+          startVerse = parseInt(complexMatch[3], 10);
+          const endChap = parseInt(complexMatch[4], 10);
+          endVerse = parseInt(complexMatch[5], 10);
+          
+          if (startChap !== endChap) {
+            return res.status(200).json({
+              exists: false,
+              text: "",
+              error: "성도님, 깊은 집중을 위해 성경 말씀은 같은 장(Chapter) 내에서만 연속 탐색이 가능합니다."
+            });
+          }
+          
+          if (endVerse - startVerse > 1 || endVerse < startVerse) {
+            return res.status(200).json({
+              exists: false,
+              text: "",
+              error: "성도님, 말씀 카드의 수려한 황금 비율과 깊은 묵상을 위해 한 번에 최대 2개 절까지만 탐색이 가능합니다."
+            });
+          }
+          
+          chapterNum = startChap;
+          isRange = startVerse !== endVerse;
+        } else {
+          // 패턴 B: "창세기 1:1-2" 또는 "요한복음 3:16" 처럼 장이 한 번만 표기된 단일/범위 형태 파싱
+          const refMatch = trimmedRef.match(/^(.+?)\s+(\d+)\s*:\s*([0-9\s\-~,]+)$/);
+          
+          if (!refMatch) {
+            return res.status(200).json({
+              exists: false,
+              text: "",
+              error: `올바른 성경 장절 형식(예: 요한복음 3:16 또는 창세기 1:1~2)으로 기입해 주세요.`
+            });
+          }
+
+          bookNameInput = refMatch[1].trim();
+          chapterNum = parseInt(refMatch[2], 10);
+          verseInput = refMatch[3].trim();
+        }
 
         // 성경 책 정경 순서 맵핑 테이블 (0 ~ 65)
         const BIBLE_BOOKS = [
@@ -280,26 +319,34 @@ export default async function handler(req, res) {
 
         const verses = chapters[chapterNum - 1]; // 0-indexed
 
-        // 2. 절 범위 파싱 (단일 절 및 범위 절)
-        let startVerse = 1;
-        let endVerse = 1;
-        let isRange = false;
-
-        const rangeMatch = verseInput.match(/^(\d+)\s*[\-~]\s*(\d+)$/);
-        if (rangeMatch) {
-          startVerse = parseInt(rangeMatch[1], 10);
-          endVerse = parseInt(rangeMatch[2], 10);
-          isRange = true;
+        // 2. 절 범위 가드 및 2개 절 초과 차단
+        if (!complexMatch) {
+          const rangeMatch = verseInput.match(/^(\d+)\s*[\-~]\s*(\d+)$/);
+          if (rangeMatch) {
+            startVerse = parseInt(rangeMatch[1], 10);
+            endVerse = parseInt(rangeMatch[2], 10);
+            isRange = true;
+            
+            if (endVerse - startVerse > 1 || endVerse < startVerse) {
+              return res.status(200).json({
+                exists: false,
+                text: "",
+                error: "성도님, 말씀 카드의 수려한 황금 비율과 깊은 묵상을 위해 한 번에 최대 2개 절까지만 탐색이 가능합니다."
+              });
+            }
+          } else {
+            startVerse = parseInt(verseInput, 10);
+            endVerse = startVerse;
+          }
         } else {
-          startVerse = parseInt(verseInput, 10);
-          endVerse = startVerse;
+          // complexMatch일 때는 선행 파서에서 이미 startVerse, endVerse, isRange를 전부 계산 및 한도 검증 완료함
         }
 
         if (isNaN(startVerse) || startVerse < 1 || startVerse > verses.length || endVerse < startVerse || endVerse > verses.length) {
           return res.status(200).json({
             exists: false,
             text: "",
-            error: `${standardBookName} ${chapterNum}장 ${verseInput}절은 존재하지 않는 범위입니다.`
+            error: `${standardBookName} ${chapterNum}장 ${startVerse}절 ~ ${endVerse}절은 존재하지 않는 범위입니다.`
           });
         }
 
@@ -314,6 +361,15 @@ export default async function handler(req, res) {
           matchedText = textSegments.join(" ");
         } else {
           matchedText = verses[startVerse - 1].replace(/\s+/g, ' ').replace(/ !/g, '!').trim();
+        }
+
+        // [비주얼 & TTS 비용 가드] 총 글자 수 160자 제한
+        if (matchedText.length > 160) {
+          return res.status(200).json({
+            exists: false,
+            text: "",
+            error: "성경 구절의 총 분량이 말씀 카드 미학 규격(최대 160자)을 초과합니다. 조금 더 정제된 구절로 묵상해 보세요."
+          });
         }
 
         return res.status(200).json({
