@@ -2932,7 +2932,11 @@ const [user, setUser] = useState(() => {
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [showPushPromptModal, setShowPushPromptModal] = useState(false);
     const [isDeleteAccountModalOpen, setIsDeleteAccountModalOpen] = useState(false);
-    const [showSplash, setShowSplash] = useState(true);
+    const [showSplash, setShowSplash] = useState(() => {
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+      return !(isAndroid && isStandalone);
+    });
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [inAppNotification, setInAppNotification] = useState(null);
