@@ -6603,24 +6603,19 @@ return (
                 }}
               >
                 <div 
-                  className="bg-[#f4ebd0] border-2 border-[#d6bd8d] rounded-[32px] w-full max-w-[340px] p-6 shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex flex-col gap-4.5 animate-scale-up max-h-[85vh]"
+                  className="bg-[#f4ebd0] border-2 border-[#d6bd8d] rounded-[32px] w-full max-w-[340px] p-6 shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex flex-col gap-4.5 animate-scale-up max-h-[85vh] relative"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {/* 상단 타이틀 바 */}
-                  <div className="flex justify-between items-center pb-2 border-b border-[#d6bd8d]/40 shrink-0">
-                    <span className="text-[#543b17] font-myeongjo font-bold text-[14.5px] tracking-wide flex items-center gap-1.5">
-                      <span>📱</span> 성소 앱으로 모시기 (PWA)
-                    </span>
-                    <button 
-                      onClick={() => setIsPwaNoticeOpen(false)}
-                      className="text-[#543b17]/60 hover:text-[#543b17] transition-colors p-1"
-                    >
-                      <Icons.Close />
-                    </button>
-                  </div>
+                  {/* 플로팅 닫기 버튼 */}
+                  <button 
+                    onClick={() => setIsPwaNoticeOpen(false)}
+                    className="absolute top-4 right-4 text-[#543b17]/60 hover:text-[#543b17] hover:bg-[#543b17]/10 p-1.5 rounded-full z-10 transition-all active:scale-90"
+                  >
+                    <Icons.Close />
+                  </button>
 
                   {/* 인포그래픽 영역 */}
-                  <div className="flex-1 overflow-y-auto pr-0.5 rounded-2xl">
+                  <div className="flex-1 overflow-y-auto pr-0.5 rounded-2xl mt-2">
                     <img 
                       src="/pwa_guide.png" 
                       alt="성소 홈화면 앱 설치 방법 안내" 
