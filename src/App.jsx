@@ -2228,13 +2228,19 @@ const handleAudioEnded = () => {
               likingUsers.map((u) => (
                 <div 
                   key={u.id}
-                  className="flex items-center gap-3.5 py-2.5 px-4 bg-white/[0.02] border border-white/[0.04] rounded-2xl hover:bg-white/[0.04] transition-colors text-left"
+                  onClick={() => {
+                    if (u.nickname) {
+                      onNavigateProfile(u.nickname);
+                      setIsLikingUsersOpen(false);
+                    }
+                  }}
+                  className="flex items-center gap-3.5 py-2.5 px-4 bg-white/[0.02] border border-white/[0.04] rounded-2xl hover:bg-white/[0.04] active:bg-white/10 cursor-pointer transition-colors text-left"
                 >
                   {u.profile_image ? (
                     <img 
                       src={u.profile_image} 
                       alt={u.nickname} 
-                      className="w-9 h-9 rounded-full object-cover border border-[#DFBA73]/30"
+                      className="w-9 h-9 rounded-full object-cover border border-[#DFBA73]/30 active:scale-95 transition-transform"
                       onError={(e) => { e.target.onerror = null; e.target.src = '/favicon.svg'; }}
                     />
                   ) : (
@@ -6199,7 +6205,16 @@ return (
                     className="flex items-center justify-between py-3 px-1.5 hover:bg-white/[0.03] rounded-2xl active:scale-[0.99] transition-all cursor-pointer"
                   >
                     <div className="flex items-center gap-3.5 flex-1 min-w-0 pr-2">
-                      <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center bg-stone-900 overflow-hidden shrink-0">
+                      <div 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (n.author_nickname) {
+                            handleNavigateProfile(n.author_nickname);
+                            setIsNotificationsOpen(false);
+                          }
+                        }}
+                        className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center bg-stone-900 overflow-hidden shrink-0 cursor-pointer active:scale-95 transition-transform"
+                      >
                         {avatar ? (
                           <img src={avatar} alt="avatar" className="w-full h-full object-cover" />
                         ) : (
