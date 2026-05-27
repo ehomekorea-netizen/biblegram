@@ -1,11 +1,10 @@
 // Biblegram PWA Service Worker for stable offline asset caching & background push skeleton
-const CACHE_NAME = 'biblegram-cache-v2';
+const CACHE_NAME = 'biblegram-cache-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/favicon.svg',
-  '/icons.svg',
-  '/manifest.json'
+  '/icons.svg'
 ];
 
 self.addEventListener('install', (e) => {
