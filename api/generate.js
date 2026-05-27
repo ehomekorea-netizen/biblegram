@@ -1,4 +1,5 @@
 /* global process, Buffer */
+import bibleData from './bible-ko.json' with { type: 'json' };
 const CURATED_HOLY_IMAGES = {
   cross: [
     "https://images.unsplash.com/photo-1544764200-d834fd210a23?q=80&w=1080&auto=format&fit=crop",
@@ -204,16 +205,6 @@ export default async function handler(req, res) {
       }
 
       try {
-        const fs = (await import('fs')).default;
-        const path = (await import('path')).default;
-        const bibleDataPath = path.join(process.cwd(), 'api', 'bible-ko.json');
-        
-        if (!fs.existsSync(bibleDataPath)) {
-          return res.status(500).json({ error: '성경 데이터베이스 파일을 서버에서 찾을 수 없습니다.' });
-        }
-        
-        const bibleData = JSON.parse(fs.readFileSync(bibleDataPath, 'utf8'));
-
         // 1. 성경 책과 장절 파싱 (예: "요한복음 3:16", "역대상 3:8", "창세기 1:1-2")
         const trimmedRef = reference.trim();
         const refMatch = trimmedRef.match(/^([a-zA-Z가-힣0-9\s]+?)\s+(\d+)\s*:\s*([0-9\s\-~,]+)$/);
