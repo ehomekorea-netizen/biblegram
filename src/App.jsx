@@ -6204,17 +6204,17 @@ return (
                     onClick={() => handleNotifClick(n)}
                     className="flex items-center justify-between py-3 px-1.5 hover:bg-white/[0.03] rounded-2xl active:scale-[0.99] transition-all cursor-pointer"
                   >
-                    <div className="flex items-center gap-3.5 flex-1 min-w-0 pr-2">
-                      <div 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (n.author_nickname) {
-                            handleNavigateProfile(n.author_nickname);
-                            setIsNotificationsOpen(false);
-                          }
-                        }}
-                        className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center bg-stone-900 overflow-hidden shrink-0 cursor-pointer active:scale-95 transition-transform"
-                      >
+                    <div 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (n.author_nickname) {
+                          handleNavigateProfile(n.author_nickname);
+                          setIsNotificationsOpen(false);
+                        }
+                      }}
+                      className="flex items-center gap-3.5 flex-1 min-w-0 pr-2 cursor-pointer"
+                    >
+                      <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center bg-stone-900 overflow-hidden shrink-0 active:scale-95 transition-transform">
                         {avatar ? (
                           <img src={avatar} alt="avatar" className="w-full h-full object-cover" />
                         ) : (
