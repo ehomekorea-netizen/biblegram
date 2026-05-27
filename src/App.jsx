@@ -2904,6 +2904,17 @@ const [user, setUser] = useState(() => {
     const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
     const [isConfirmCreateModalOpen, setIsConfirmCreateModalOpen] = useState(false);
     const [isLimitExhaustedExitModalOpen, setIsLimitExhaustedExitModalOpen] = useState(false);
+    const [isPwaNoticeOpen, setIsPwaNoticeOpen] = useState(() => {
+      const dismissedUntil = localStorage.getItem('biblegram_pwa_notice_dismissed_until');
+      if (dismissedUntil) {
+        const parsed = parseInt(dismissedUntil, 10);
+        if (!isNaN(parsed) && Date.now() < parsed) {
+          return false;
+        }
+      }
+      return true;
+    });
+    const [isPwaNoticeManual, setIsPwaNoticeManual] = useState(false);
     const [profileTab, setProfileTab] = useState('created');
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [selectedCardIds, setSelectedCardIds] = useState([]);
@@ -3531,6 +3542,20 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
       console.error("Error fetching liked states:", err);
     }
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('reset_pwa') === 'true' || params.get('test') === 'true') {
+      localStorage.removeItem('biblegram_pwa_notice_dismissed_until');
+      setIsPwaNoticeOpen(true);
+      // Clean URL parameter for a neat state
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+      setTimeout(() => {
+        showToast("공지 팝업이 강제로 활성화되었습니다! ✨", "success", 2000);
+      }, 100);
+    }
+  }, []);
 
   useEffect(() => {
     // Supabase Realtime Subscription 바인딩
@@ -5979,13 +6004,16 @@ return (
                         <div className="flex flex-col gap-0.5">
                           <span className="text-[13.5px] font-bold text-stone-200 font-sans tracking-wide">성소 소식 및 버전 정보</span>
                           <span className="text-[9.5px] text-stone-500 font-sans leading-normal">
-                            현재 버전: v1.8.0
+                            현재 버전: v1.8.1
                           </span>
                         </div>
                       </div>
                       <button
                         type="button"
-                        onClick={() => setIsUpdateModalOpen(true)}
+                        onClick={() => {
+                          setIsSettingsOpen(false);
+                          setIsUpdateModalOpen(true);
+                        }}
                         className="py-2 px-3.5 rounded-xl border border-[#DFBA73]/30 hover:border-[#DFBA73] bg-[#DFBA73]/5 hover:bg-[#DFBA73]/10 text-[#DFBA73] text-[11px] font-bold transition-all active:scale-[0.98]"
                       >
                         업데이트 내역
@@ -6352,7 +6380,7 @@ return (
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex justify-between items-center pb-3 border-b border-[#DFBA73]/20">
-                    <h3 className="text-[#DFBA73] font-myeongjo font-bold text-[16px] tracking-wide">업데이트 내역 (v1.8.0)</h3>
+                    <h3 className="text-[#DFBA73] font-myeongjo font-bold text-[16px] tracking-wide">업데이트 내역 (v1.8.1)</h3>
                     <button 
                       onClick={() => setIsUpdateModalOpen(false)}
                       className="text-[#DFBA73]/60 hover:text-white transition-colors"
@@ -6364,7 +6392,21 @@ return (
                   <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4.5 text-left text-[12.5px] text-stone-300 font-sans leading-relaxed max-h-[50vh] scrollbar-thin">
                     <div>
                       <div className="flex items-center gap-2 mb-1.5">
-                        <span className="px-1.5 py-0.5 rounded text-[9.5px] font-extrabold bg-[#DFBA73]/20 text-[#DFBA73] border border-[#DFBA73]/30">v1.8.0</span>
+                        <span className="px-1.5 py-0.5 rounded text-[9.5px] font-extrabold bg-[#DFBA73]/20 text-[#DFBA73] border border-[#DFBA73]/30">v1.8.1</span>
+                        <span className="text-[10px] text-stone-500 font-medium">2026.05.28</span>
+                      </div>
+                      <p className="font-bold text-stone-200 text-[13px] mb-1">소통 미학 완성 및 안드로이드 사용성 대개편</p>
+                      <ul className="list-disc list-inside pl-1 text-[11px] text-stone-400 flex flex-col gap-1">
+                        <li>정식 앱 마켓 출시 전 임시 배포 방식에 맞춰, PWA 홈 화면 추가 시 노출되던 시스템 잔여 텍스트를 정밀 제거하고 브랜딩을 정비하였습니다.</li>
+                        <li>성소 소식을 한눈에 파악할 수 있는 고해상도 인포그래픽 시안을 초간결 레이아웃으로 개편하여 정보 인지성을 비약적으로 높였습니다.</li>
+                        <li>수동으로 설치 안내를 보거나 다시 업데이트 내역으로 순환 탐색할 때, 두 팝업의 하단 닫기/이동 버튼을 동일한 샴페인 골드 캡슐 규격으로 완치하여 극상의 미적 대칭을 맞추었습니다.</li>
+                        <li>로그인 유저를 포함한 모든 소중한 성도님들께서 앱을 재실행하거나 새로고침할 때에도 공지 팝업이 로직 오류 없이 부드럽게 나타나도록 연동을 완료했습니다.</li>
+                      </ul>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="px-1.5 py-0.5 rounded text-[9.5px] font-extrabold bg-stone-800 text-stone-400 border border-stone-700">v1.8.0</span>
                         <span className="text-[10px] text-stone-500 font-medium">2026.05.27</span>
                       </div>
                       <p className="font-bold text-stone-200 text-[13px] mb-1">소통 강화 및 영적 교제 안정화</p>
@@ -6404,56 +6446,26 @@ return (
                         <li>성소 마스터 계정을 위한 통합 관리 권한 정립 및 삭제 권한 동기화를 완치하였습니다.</li>
                       </ul>
                     </div>
-
-                    <div>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="px-1.5 py-0.5 rounded text-[9.5px] font-extrabold bg-stone-800 text-stone-400 border border-stone-700">v1.6.0</span>
-                        <span className="text-[10px] text-stone-500 font-medium">2026.05.25</span>
-                      </div>
-                      <p className="font-bold text-stone-200 text-[13px] mb-1">성소 권한 정립 및 공감 안정화</p>
-                      <ul className="list-disc list-inside pl-1 text-[11px] text-stone-400 flex flex-col gap-1">
-                        <li>댓글 더블탭 및 하트 터치 시 공감 카운팅이 한층 더 부드럽고 확실하게 작동하도록 개선하였습니다.</li>
-                        <li>공감 취소 시 상대방 성도님께 가 있던 알림까지 깨끗이 회수되어 불필요한 흔적이 남지 않습니다.</li>
-                        <li>본인이 작성한 말씀 카드만 성전(피드) 및 서재에서 영구 삭제 가능하도록 보안을 강화하였습니다.</li>
-                        <li>내가 올린 말씀 카드에 달린 타인의 댓글은 게시물 주인으로서 직접 지워 관리할 수 있도록 합리적으로 정돈하였습니다.</li>
-                        <li>성소 소식 및 버전 정보가 설정 목록 최상단의 📜 카드 메뉴로 보기 좋게 재구성되었습니다.</li>
-                      </ul>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="px-1.5 py-0.5 rounded text-[9.5px] font-extrabold bg-stone-800 text-stone-400 border border-stone-700">v1.5.4</span>
-                        <span className="text-[10px] text-stone-500 font-medium">2026.05.25</span>
-                      </div>
-                      <p className="font-bold text-stone-200 text-[13px] mb-1">서재 관리 및 로그인 안정화</p>
-                      <ul className="list-disc list-inside pl-1 text-[11px] text-stone-400 flex flex-col gap-1">
-                        <li>내 서재에서 직접 만든 말씀 카드를 꾹 눌러 다중 선택 후 일괄 삭제할 수 있습니다.</li>
-                        <li>일부 모바일 브라우저 환경에서 로그인이 안 되던 문제를 해결하였습니다.</li>
-                        <li>로그인 화면의 비주얼 연출이 더욱 세련되게 개선되었습니다.</li>
-                        <li>설정 화면 레이아웃이 보기 좋게 정돈되었습니다.</li>
-                      </ul>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="px-1.5 py-0.5 rounded text-[9.5px] font-extrabold bg-stone-800 text-stone-400 border border-stone-700">v1.4.0</span>
-                        <span className="text-[10px] text-stone-500 font-medium">2026.05.23</span>
-                      </div>
-                      <p className="font-bold text-stone-300 text-[13px] mb-1">성경 낭독 목소리 선택 및 편의성 개선</p>
-                      <ul className="list-disc list-inside pl-1 text-[11px] text-stone-400 flex flex-col gap-1">
-                        <li>6가지 고품질 낭독 목소리를 설정에서 직접 고르고 미리 들을 수 있습니다.</li>
-                        <li>서재 썸네일에 성경 장절이 표시되어 한눈에 구별할 수 있습니다.</li>
-                        <li>음소거 설정이 피드 전체에서 유지됩니다.</li>
-                      </ul>
-                    </div>
                   </div>
 
-                  <button
-                    onClick={() => setIsUpdateModalOpen(false)}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-[#DFBA73] to-[#C5A059] text-black font-extrabold text-[12.5px] tracking-wide active:scale-[0.98] transition-all"
-                  >
-                    은혜의 성소로 돌아가기
-                  </button>
+                  <div className="flex flex-col gap-2.5 shrink-0 w-full">
+                    <button
+                      onClick={() => setIsUpdateModalOpen(false)}
+                      className="w-full py-3.5 rounded-full bg-gradient-to-r from-[#DFBA73] to-[#C59B4E] hover:from-[#e8c682] hover:to-[#d4ac5d] active:scale-[0.98] text-stone-950 text-[12.5px] font-extrabold shadow-lg shadow-[#DFBA73]/15 transition-all text-center"
+                    >
+                      닫기
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsUpdateModalOpen(false);
+                        setIsPwaNoticeManual(true);
+                        setIsPwaNoticeOpen(true);
+                      }}
+                      className="w-full py-3.5 rounded-full border border-[#DFBA73]/30 hover:border-[#DFBA73] bg-[#DFBA73]/5 hover:bg-[#DFBA73]/10 text-[#DFBA73] text-[12.5px] font-extrabold active:scale-[0.98] transition-all text-center"
+                    >
+                      성소 앱(PWA) 설치 안내 보기 📱
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -6571,6 +6583,101 @@ return (
                     >
                       나중에 하기
                     </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 8.3. 하늘빛 성소 앱으로 모시기 PWA 설치 안내 공지 모달 */}
+            {isPwaNoticeOpen && (
+              <div 
+                className="fixed inset-0 bg-black/85 backdrop-blur-md z-[115] flex items-center justify-center p-6 animate-fade-in pointer-events-auto"
+                onClick={() => {
+                  if (isPwaNoticeManual) {
+                    setIsPwaNoticeOpen(false);
+                  } else {
+                    localStorage.setItem('biblegram_pwa_notice_dismissed_until', (Date.now() + 7 * 24 * 60 * 60 * 1000).toString());
+                    showToast("7일간 성소 앱 안내를 보이지 않게 설정했습니다.", "success", 1500);
+                    setIsPwaNoticeOpen(false);
+                  }
+                }}
+              >
+                <div 
+                  className="bg-[#f4ebd0] border-2 border-[#d6bd8d] rounded-[32px] w-full max-w-[340px] p-6 shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex flex-col gap-4.5 animate-scale-up max-h-[85vh]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* 상단 타이틀 바 */}
+                  <div className="flex justify-between items-center pb-2 border-b border-[#d6bd8d]/40 shrink-0">
+                    <span className="text-[#543b17] font-myeongjo font-bold text-[14.5px] tracking-wide flex items-center gap-1.5">
+                      <span>📱</span> 성소 앱으로 모시기 (PWA)
+                    </span>
+                    <button 
+                      onClick={() => setIsPwaNoticeOpen(false)}
+                      className="text-[#543b17]/60 hover:text-[#543b17] transition-colors p-1"
+                    >
+                      <Icons.Close />
+                    </button>
+                  </div>
+
+                  {/* 인포그래픽 영역 */}
+                  <div className="flex-1 overflow-y-auto pr-0.5 rounded-2xl">
+                    <img 
+                      src="/pwa_guide.png" 
+                      alt="성소 홈화면 앱 설치 방법 안내" 
+                      className="w-full h-auto rounded-2xl select-none pointer-events-none object-cover border border-[#d6bd8d]/30 shadow-sm"
+                    />
+                  </div>
+
+                  {/* 하단 제어부 (크림-베이지 배경에 걸맞게 골드와 다크브라운 톤으로 100% 가독성 확보) */}
+                  <div className="flex flex-col gap-2.5 shrink-0 w-full mt-1">
+                    {isPwaNoticeManual ? (
+                      <>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsPwaNoticeOpen(false);
+                          }}
+                          className="w-full py-3.5 rounded-full bg-gradient-to-r from-[#DFBA73] to-[#C59B4E] hover:from-[#e8c682] hover:to-[#d4ac5d] active:scale-[0.98] text-stone-950 text-[12.5px] font-extrabold shadow-lg shadow-[#DFBA73]/15 transition-all text-center"
+                        >
+                          닫기
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsPwaNoticeOpen(false);
+                            setIsUpdateModalOpen(true);
+                          }}
+                          className="w-full py-3.5 rounded-full border border-[#DFBA73]/40 hover:border-[#DFBA73] bg-[#DFBA73]/5 hover:bg-[#DFBA73]/10 text-[#543b17] text-[12.5px] font-extrabold active:scale-[0.98] transition-all text-center"
+                        >
+                          하늘빛 업데이트 내역 확인하기 📜
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            localStorage.setItem('biblegram_pwa_notice_dismissed_until', (Date.now() + 7 * 24 * 60 * 60 * 1000).toString());
+                            showToast("7일간 성소 앱 안내를 보이지 않게 설정했습니다.", "success", 1500);
+                            setIsPwaNoticeOpen(false);
+                          }}
+                          className="w-full py-3.5 rounded-full bg-gradient-to-r from-[#d4af37] to-[#aa7c11] hover:from-[#e5c158] hover:to-[#c59524] active:scale-[0.98] text-[#0c0a08] text-[12.5px] font-extrabold shadow-md shadow-[#aa7c11]/15 transition-all text-center"
+                        >
+                          7일간 보지 않기
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            localStorage.setItem('biblegram_pwa_notice_dismissed_until', (Date.now() + 24 * 60 * 60 * 1000).toString());
+                            showToast("오늘 하루 이 공지를 보이지 않게 설정했습니다.", "success", 1500);
+                            setIsPwaNoticeOpen(false);
+                          }}
+                          className="w-full py-3.5 rounded-full bg-[#ebdcb9] hover:bg-[#e4d4ae] border border-[#d6bd8d]/60 text-[#543b17] font-extrabold text-[12.5px] tracking-wide active:scale-[0.98] transition-all text-center"
+                        >
+                          오늘 하루 안 보기
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
