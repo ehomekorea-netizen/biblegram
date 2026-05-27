@@ -1,5 +1,6 @@
 /* global process, Buffer */
 import bibleData from './bible-ko.json' with { type: 'json' };
+const rateLimitMap = new Map();
 const CURATED_HOLY_IMAGES = {
   cross: [
     "https://images.unsplash.com/photo-1544764200-d834fd210a23?q=80&w=1080&auto=format&fit=crop",
@@ -202,6 +203,24 @@ export default async function handler(req, res) {
     if (action === 'search') {
       if (!reference) {
         return res.status(400).json({ error: 'Reference is required for search action' });
+      }
+
+      // [Vercel IP Rate Limiter] 동일 IP에서 1분당 최대 10회 요청 제한
+      const clientIp = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket.remoteAddress || 'anonymous';
+      const now = Date.now();
+      const ipData = rateLimitMap.get(clientIp);
+
+      if (!ipData || now > ipData.resetTime) {
+        rateLimitMap.set(clientIp, { count: 1, resetTime: now + 60000 });
+      } else {
+        ipData.count++;
+        if (ipData.count > 10) {
+          return res.status(200).json({
+            exists: false,
+            text: "",
+            error: "성도님, 단시간 내에 너무 많은 탐색 요청이 감지되었습니다. 1분 후 평온한 마음으로 다시 시도해 주세요."
+          });
+        }
       }
 
       try {
