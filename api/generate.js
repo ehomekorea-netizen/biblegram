@@ -356,7 +356,7 @@ export default async function handler(req, res) {
           const textSegments = [];
           for (let v = startVerse; v <= endVerse; v++) {
             const cleanText = verses[v - 1].replace(/\s+/g, ' ').replace(/ !/g, '!').trim();
-            textSegments.push(`${v}절 ${cleanText}`);
+            textSegments.push(cleanText);
           }
           matchedText = textSegments.join(" ");
         } else {
