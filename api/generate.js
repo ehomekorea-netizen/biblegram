@@ -1,6 +1,181 @@
 /* global process, Buffer */
 import bibleData from './bible-ko.json' with { type: 'json' };
 const rateLimitMap = new Map();
+
+const BIBLE_BOOKS_MAP = [
+  { idx: 0, name: "Genesis", ko: ["창세기", "창", "Genesis", "Gen", "gn"] },
+  { idx: 1, name: "Exodus", ko: ["출애굽기", "출", "Exodus", "Ex", "ex"] },
+  { idx: 2, name: "Leviticus", ko: ["레위기", "레", "Leviticus", "Lev", "lv"] },
+  { idx: 3, name: "Numbers", ko: ["민수기", "민", "Numbers", "Num", "nm"] },
+  { idx: 4, name: "Deuteronomy", ko: ["신명기", "신", "Deuteronomy", "Deut", "dt"] },
+  { idx: 5, name: "Joshua", ko: ["여호수아", "여호", "수", "Joshua", "Josh", "js"] },
+  { idx: 6, name: "Judges", ko: ["사사기", "사사", "삿", "Judges", "Judg", "jg"] },
+  { idx: 7, name: "Ruth", ko: ["룻기", "룻", "Ruth", "ru"] },
+  { idx: 8, name: "1 Samuel", ko: ["사무엘상", "삼상", "1 Samuel", "1 Sam", "1sa"] },
+  { idx: 9, name: "2 Samuel", ko: ["사무엘하", "삼하", "2 Samuel", "2 Sam", "2sa"] },
+  { idx: 10, name: "1 Kings", ko: ["열왕기상", "왕상", "1 Kings", "1 Kings", "1ki"] },
+  { idx: 11, name: "2 Kings", ko: ["열왕기하", "왕하", "2 Kings", "2 Kings", "2ki"] },
+  { idx: 12, name: "1 Chronicles", ko: ["역대기상", "역대상", "대상", "1 Chronicles", "1 Chr", "1ch"] },
+  { idx: 13, name: "2 Chronicles", ko: ["역대기하", "역대하", "대하", "2 Chronicles", "2 Chr", "2ch"] },
+  { idx: 14, name: "Ezra", ko: ["에스라", "스", "Ezra", "ez"] },
+  { idx: 15, name: "Nehemiah", ko: ["느헤미야", "느", "Nehemiah", "Neh", "ne"] },
+  { idx: 16, name: "Esther", ko: ["에스더", "에", "Esther", "Esth", "es"] },
+  { idx: 17, name: "Job", ko: ["욥기", "욥", "Job", "jb"] },
+  { idx: 18, name: "Psalms", ko: ["시편", "시", "Psalms", "Ps", "Psalm", "ps"] },
+  { idx: 19, name: "Proverbs", ko: ["잠언", "잠", "Proverbs", "Prov", "pr"] },
+  { idx: 20, name: "Ecclesiastes", ko: ["전도서", "전", "Ecclesiastes", "Eccles", "ec"] },
+  { idx: 21, name: "Song of Solomon", ko: ["아가", "아", "Song of Solomon", "Song of Songs", "Song", "so"] },
+  { idx: 22, name: "Isaiah", ko: ["이사야", "사", "Isaiah", "Isa", "is"] },
+  { idx: 23, name: "Jeremiah", ko: ["예레미야", "렘", "Jeremiah", "Jer", "jr"] },
+  { idx: 24, name: "Lamentations", ko: ["예레미야애가", "예레미야 애가", "애", "렘애", "Lamentations", "Lam", "lm"] },
+  { idx: 25, name: "Ezekiel", ko: ["에스겔", "겔", "Ezekiel", "Ezek", "ek"] },
+  { idx: 26, name: "Daniel", ko: ["다니엘", "단", "Daniel", "Dan", "dn"] },
+  { idx: 27, name: "Hosea", ko: ["호세아", "호", "Hosea", "Hos", "hs"] },
+  { idx: 28, name: "Joel", ko: ["요엘", "욜", "Joel", "jo"] },
+  { idx: 29, name: "Amos", ko: ["아모스", "암", "Amos", "am"] },
+  { idx: 30, name: "Obadiah", ko: ["오바댜", "옵", "Obadiah", "Obad", "ob"] },
+  { idx: 31, name: "Jonah", ko: ["요나", "욘", "Jonah", "jo"] },
+  { idx: 32, name: "Micah", ko: ["미가", "미", "Micah", "Mic", "mc"] },
+  { idx: 33, name: "Nahum", ko: ["나훔", "나", "Nahum", "Nah", "nh"] },
+  { idx: 34, name: "Habakkuk", ko: ["하박국", "합", "Habakkuk", "Hab", "hb"] },
+  { idx: 35, name: "Zephaniah", ko: ["스바냐", "습", "Zephaniah", "Zeph", "zp"] },
+  { idx: 36, name: "Haggai", ko: ["학개", "학", "Haggai", "Hag", "hg"] },
+  { idx: 37, name: "Zechariah", ko: ["스가랴", "슥", "Zechariah", "Zech", "zc"] },
+  { idx: 38, name: "Malachi", ko: ["말라기", "말", "Malachi", "Mal", "ml"] },
+  { idx: 39, name: "Matthew", ko: ["마태복음", "마태", "마", "Matthew", "Matt", "mt"] },
+  { idx: 40, name: "Mark", ko: ["마가복음", "마가", "막", "Mark", "mk"] },
+  { idx: 41, name: "Luke", ko: ["누가복음", "누가", "누", "Luke", "lk"] },
+  { idx: 42, name: "John", ko: ["요한복음", "요한", "요", "John", "jn"] },
+  { idx: 43, name: "Acts", ko: ["사도행전", "행", "Acts", "ac"] },
+  { idx: 44, name: "Romans", ko: ["로마서", "롬", "Romans", "Rom", "rm"] },
+  { idx: 45, name: "1 Corinthians", ko: ["고린도전서", "고전", "1 Corinthians", "1 Cor", "1co"] },
+  { idx: 46, name: "2 Corinthians", ko: ["고린도후서", "고후", "2 Corinthians", "2 Cor", "2co"] },
+  { idx: 47, name: "Galatians", ko: ["갈라디아서", "갈", "Galatians", "Gal", "gl"] },
+  { idx: 48, name: "Ephesians", ko: ["에베소서", "엡", "Ephesians", "Eph", "ep"] },
+  { idx: 49, name: "Philippians", ko: ["빌립보서", "빌", "Philippians", "Phil", "ph"] },
+  { idx: 50, name: "Colossians", ko: ["골로새서", "골", "Colossians", "Col", "cl"] },
+  { idx: 51, name: "1 Thessalonians", ko: ["데살로니가전서", "살전", "1 Thessalonians", "1 Thess", "1th"] },
+  { idx: 52, name: "2 Thessalonians", ko: ["데살로니가후서", "살후", "2 Thessalonians", "2 Thess", "2th"] },
+  { idx: 53, name: "1 Timothy", ko: ["디모데전서", "딤전", "1 Timothy", "1 Tim", "1ti"] },
+  { idx: 54, name: "2 Timothy", ko: ["디모데후서", "딤후", "2 Timothy", "2 Tim", "2ti"] },
+  { idx: 55, name: "Titus", ko: ["디도서", "딛", "Titus", "tt"] },
+  { idx: 56, name: "Philemon", ko: ["빌레몬서", "몬", "Philemon", "Philem", "pm"] },
+  { idx: 57, name: "Hebrews", ko: ["히브리서", "히", "Hebrews", "Heb", "hb"] },
+  { idx: 58, name: "James", ko: ["야고보서", "야", "James", "Jas", "jm"] },
+  { idx: 59, name: "1 Peter", ko: ["베드로전서", "벧전", "1 Peter", "1 Pet", "1pe"] },
+  { idx: 60, name: "2 Peter", ko: ["베드로후서", "벧후", "2 Peter", "2 Pet", "2pe"] },
+  { idx: 61, name: "1 John", ko: ["요한일서", "요일", "1 John", "1 Jn", "1jn"] },
+  { idx: 62, name: "2 John", ko: ["요한이서", "요이", "2 John", "2 Jn", "2jn"] },
+  { idx: 63, name: "3 John", ko: ["요한삼서", "요삼", "3 John", "3 Jn", "3jn"] },
+  { idx: 64, name: "Jude", ko: ["유다서", "유", "Jude", "jd"] },
+  { idx: 65, name: "Revelation", ko: ["요한계시록", "계시록", "계", "Revelation", "Rev", "rv"] }
+];
+
+function searchLocalBible(reference) {
+  const trimmed = reference.trim();
+  
+  const allAliases = [];
+  BIBLE_BOOKS_MAP.forEach(book => {
+    book.ko.forEach(alias => {
+      allAliases.push({ alias, bookIdx: book.idx });
+    });
+  });
+  allAliases.sort((a, b) => b.alias.length - a.alias.length);
+
+  let matchedAlias = null;
+  for (const item of allAliases) {
+    const escaped = item.alias.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const regex = new RegExp(`^\\s*${escaped}\\s*\\d+`, 'i');
+    if (regex.test(trimmed)) {
+      matchedAlias = item;
+      break;
+    }
+  }
+
+  if (!matchedAlias) {
+    return { exists: false, text: "", error: "올바른 성경 장절 형식(예: 요한복음 3:16 또는 창세기 1:1~2)으로 기입해 주세요." };
+  }
+
+  const remaining = trimmed.substring(trimmed.toLowerCase().indexOf(matchedAlias.alias.toLowerCase()) + matchedAlias.alias.length).trim();
+  
+  let chapterNum = 1;
+  let startVerse = 1;
+  let endVerse = 1;
+
+  const rangeDoubleMatch = remaining.match(/^(\d+)\s*:\s*(\d+)\s*[\-~]\s*(\d+)\s*:\s*(\d+)$/);
+  if (rangeDoubleMatch) {
+    const startChap = parseInt(rangeDoubleMatch[1], 10);
+    startVerse = parseInt(rangeDoubleMatch[2], 10);
+    const endChap = parseInt(rangeDoubleMatch[3], 10);
+    endVerse = parseInt(rangeDoubleMatch[4], 10);
+
+    if (startChap !== endChap) {
+      return { exists: false, text: "", error: "성도님, 깊은 집중을 위해 성경 말씀은 같은 장(Chapter) 내에서만 연속 탐색이 가능합니다." };
+    }
+    chapterNum = startChap;
+  } else {
+    const rangeSingleMatch = remaining.match(/^(\d+)\s*:\s*(\d+)\s*[\-~]\s*(\d+)$/);
+    if (rangeSingleMatch) {
+      chapterNum = parseInt(rangeSingleMatch[1], 10);
+      startVerse = parseInt(rangeSingleMatch[2], 10);
+      endVerse = parseInt(rangeSingleMatch[3], 10);
+    } else {
+      const singleMatch = remaining.match(/^(\d+)\s*:\s*(\d+)$/);
+      if (singleMatch) {
+        chapterNum = parseInt(singleMatch[1], 10);
+        startVerse = parseInt(singleMatch[2], 10);
+        endVerse = startVerse;
+      } else {
+        return { exists: false, text: "", error: "올바른 성경 장절 형식(예: 요한복음 3:16 또는 창세기 1:1~2)으로 기입해 주세요." };
+      }
+    }
+  }
+
+  if (endVerse < startVerse) {
+    return { exists: false, text: "", error: "시작 절 번호가 끝 절 번호보다 클 수 없습니다." };
+  }
+  if (endVerse - startVerse > 1) {
+    return { exists: false, text: "", error: "성도님, 말씀 카드의 수려한 황금 비율과 깊은 묵상을 위해 한 번에 최대 2개 절까지만 탐색이 가능합니다." };
+  }
+
+  const book = bibleData[matchedAlias.bookIdx];
+  if (!book) {
+    return { exists: false, text: "", error: "존재하지 않는 성경 도서입니다." };
+  }
+
+  if (chapterNum < 1 || chapterNum > book.chapters.length) {
+    return { exists: false, text: "", error: `성도님, ${matchedAlias.alias} 성경은 ${book.chapters.length}장까지만 존재합니다.` };
+  }
+
+  const chapterArray = book.chapters[chapterNum - 1];
+  if (startVerse < 1 || startVerse > chapterArray.length || endVerse > chapterArray.length) {
+    return { exists: false, text: "", error: `성도님, ${matchedAlias.alias} ${chapterNum}장은 ${chapterArray.length}절까지만 존재합니다.` };
+  }
+
+  let extractedText = "";
+  if (startVerse === endVerse) {
+    extractedText = chapterArray[startVerse - 1].trim();
+  } else {
+    extractedText = `${chapterArray[startVerse - 1].trim()} ${chapterArray[endVerse - 1].trim()}`;
+  }
+
+  extractedText = extractedText.replace(/&#x27;/g, "'").replace(/&quot;/g, '"');
+
+  if (extractedText.length > 160) {
+    return {
+      exists: false,
+      text: "",
+      error: "성경 구절의 총 분량이 말씀 카드 미학 규격(최대 160자)을 초과합니다. 조금 더 정제된 구절로 묵상해 보세요."
+    };
+  }
+
+  return {
+    exists: true,
+    text: extractedText,
+    error: ""
+  };
+}
+
 const CURATED_HOLY_IMAGES = {
   cross: [
     "https://images.unsplash.com/photo-1544764200-d834fd210a23?q=80&w=1080&auto=format&fit=crop",
@@ -224,128 +399,14 @@ export default async function handler(req, res) {
       }
 
       try {
-        const trimmedRef = reference.trim();
-        
-        // 1. 선행 가드: 3개 절 이상 및 서로 다른 장 범위인지 정규식으로 기계적 검증 (프론트/백 이중 방어)
-        let bookNameInput = "";
-        let chapterNum = 1;
-        let startVerse = 1;
-        let endVerse = 1;
-        let isRange = false;
-
-        const complexMatch = trimmedRef.match(/^(.+?)\s+(\d+)\s*:\s*(\d+)\s*[\-~]\s*(\d+)\s*:\s*(\d+)$/);
-        
-        if (complexMatch) {
-          bookNameInput = complexMatch[1].trim();
-          const startChap = parseInt(complexMatch[2], 10);
-          startVerse = parseInt(complexMatch[3], 10);
-          const endChap = parseInt(complexMatch[4], 10);
-          endVerse = parseInt(complexMatch[5], 10);
-          
-          if (startChap !== endChap) {
-            return res.status(200).json({
-              exists: false,
-              text: "",
-              error: "성도님, 깊은 집중을 위해 성경 말씀은 같은 장(Chapter) 내에서만 연속 탐색이 가능합니다."
-            });
-          }
-          if (endVerse - startVerse > 1 || endVerse < startVerse) {
-            return res.status(200).json({
-              exists: false,
-              text: "",
-              error: "성도님, 말씀 카드의 수려한 황금 비율과 깊은 묵상을 위해 한 번에 최대 2개 절까지만 탐색이 가능합니다."
-            });
-          }
-          chapterNum = startChap;
-          isRange = startVerse !== endVerse;
-        } else {
-          const refMatch = trimmedRef.match(/^(.+?)\s+(\d+)\s*:\s*([0-9\s\-~,]+)$/);
-          if (!refMatch) {
-            return res.status(200).json({
-              exists: false,
-              text: "",
-              error: `올바른 성경 장절 형식(예: 요한복음 3:16 또는 창세기 1:1~2)으로 기입해 주세요.`
-            });
-          }
-
-          bookNameInput = refMatch[1].trim();
-          chapterNum = parseInt(refMatch[2], 10);
-          const verseInput = refMatch[3].trim();
-
-          const rangeMatch = verseInput.match(/^(\d+)\s*[\-~]\s*(\d+)$/);
-          if (rangeMatch) {
-            startVerse = parseInt(rangeMatch[1], 10);
-            endVerse = parseInt(rangeMatch[2], 10);
-            isRange = true;
-            
-            if (endVerse - startVerse > 1 || endVerse < startVerse) {
-              return res.status(200).json({
-                exists: false,
-                text: "",
-                error: "성도님, 말씀 카드의 수려한 황금 비율과 깊은 묵상을 위해 한 번에 최대 2개 절까지만 탐색이 가능합니다."
-              });
-            }
-          } else {
-            startVerse = parseInt(verseInput, 10);
-            endVerse = startVerse;
-          }
-        }
-
-        // 2. OpenAI GPT-4o-mini에게 "개역개정" 판본의 정확한 성구 요청
-        const searchPrompt = `대한성서공회의 공식 [개역개정] 성경 번역본에서 아래 지정된 장절 범위의 본문 텍스트를 정확하게 추출해 주세요.
-성경 구절 범위: ${trimmedRef}
-
-[중요 지침]
-1. 반드시 대한민국 개신교 교단에서 공식 사용하는 [개역개정] 번역본의 원본 본문 텍스트여야 합니다. (개역한글의 '패괴', '강포' 대신 '부패', '포악' 등으로 올바르게 수정된 개역개정 텍스트여야 합니다.)
-2. 다중 절 범위(예: 요한복음 1:1-2)인 경우, 절 번호 접두사(예: '1절', '2절' 또는 '1.', '2.')를 절대로 텍스트에 포함하지 말고, 두 절의 본문만 자연스러운 하나의 공백으로 연결하여 하나의 완전한 텍스트로 합쳐 주십시오.
-3. 구절이 실제로 존재하지 않는 경우, "exists": false로 설정하십시오.
-4. 만약 검색된 성경 구절의 총 글자 수가 160자를 넘어가면 "error": "성경 구절의 총 분량이 말씀 카드 미학 규격(최대 160자)을 초과합니다. 조금 더 정제된 구절로 묵상해 보세요.", "exists": false를 반환하십시오.
-
-[JSON 반환 형식]
-{
-  "exists": true 또는 false,
-  "text": "절 번호가 완전히 배제된 자연스럽게 결합된 개역개정 본문 텍스트",
-  "error": "오류 발생 시에만 기입하는 안내 메시지 (정상 작동 시에는 빈 문자열)"
-}`;
-
-        const messages = [
-          { role: 'system', content: "당신은 대한성서공회의 공식 [개역개정] 성경 본문을 완벽하게 기억하고 있는 신뢰할 수 있는 성서 데이터 제공 서버입니다. 오직 지정된 JSON 형식으로만 응답하며 본문의 글자 하나, 쉼표 하나까지 개역개정 판본의 텍스트와 100% 일치해야 합니다." },
-          { role: 'user', content: searchPrompt }
-        ];
-
-        const openaiPayload = {
-          model: 'gpt-4o-mini',
-          messages,
-          temperature: 0.0,
-          response_format: { type: 'json_object' }
-        };
-
-        const url = 'https://api.openai.com/v1/chat/completions';
-        const apiResponse = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openaiApiKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(openaiPayload)
-        });
-
-        if (!apiResponse.ok) {
-          throw new Error(`OpenAI API error: ${apiResponse.statusText}`);
-        }
-
-        const result = await apiResponse.json();
-        let rawText = result.choices[0].message.content.trim();
-        rawText = rawText.replace(/```json\n?/g, '').replace(/```/g, '').trim();
-        const parsed = JSON.parse(rawText);
-
-        return res.status(200).json(parsed);
+        const result = searchLocalBible(reference);
+        return res.status(200).json(result);
       } catch (err) {
-        console.error("OpenAI Bible search failed:", err);
+        console.error("Local Bible search failed:", err);
         return res.status(200).json({
           exists: false,
           text: "",
-          error: "성경 구절을 탐색하는 도중 서버 지연이 발생했습니다. 다시 시도해 주시거나 수동으로 기입해 주세요."
+          error: "성경 구절을 탐색하는 도중 예기치 못한 오류가 발생했습니다. 다시 시도해 주세요."
         });
       }
     } else if (action === 'create') {

@@ -290,6 +290,15 @@ const extractReference = (text) => {
 };
 
 
+const cleanProfileImageUrl = (url) => {
+  if (!url) return '';
+  let cleaned = url.trim();
+  if (cleaned.startsWith('http://')) {
+    cleaned = cleaned.replace('http://', 'https://');
+  }
+  return cleaned;
+};
+
 const isValidBibleReference = (input) => {
   if (!input) return { valid: false, reason: "장절 주소를 입력하세요 (예: 요한복음 3:16)" };
   const trimmed = input.trim();
@@ -1688,9 +1697,22 @@ const handleAudioEnded = () => {
               title="성서 서재 방문하기"
             >
               {/* 카카오톡 프로필 사진 연동 및 부드러운 스퀘어(Squircle) */}
-              <div className="w-10 h-10 rounded-[11px] bg-[#1a1612] flex items-center justify-center text-[#DFBA73] text-[13px] font-bold border border-[#DFBA73]/25 shadow-md group-hover:scale-105 transition-transform shrink-0 overflow-hidden">
+              <div className="w-10 h-10 rounded-[11px] bg-[#1a1612] flex items-center justify-center text-[#DFBA73] text-[13px] font-bold border border-[#DFBA73]/25 shadow-md group-hover:scale-105 transition-transform shrink-0 overflow-hidden relative">
                 {userProfiles && userProfiles[card.author] ? (
-                  <img src={userProfiles[card.author]} alt="profile" className="w-full h-full object-cover" />
+                  <img 
+                    src={userProfiles[card.author]} 
+                    alt="profile" 
+                    className="w-full h-full object-cover" 
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.style.display = 'none';
+                      const parent = e.target.parentElement;
+                      if (parent) {
+                        parent.textContent = card.author?.charAt(0).toUpperCase() || 'U';
+                      }
+                    }}
+                  />
                 ) : (
                   card.author?.charAt(0).toUpperCase() || 'U'
                 )}
@@ -2241,7 +2263,18 @@ const handleAudioEnded = () => {
                       src={u.profile_image} 
                       alt={u.nickname} 
                       className="w-9 h-9 rounded-full object-cover border border-[#DFBA73]/30 active:scale-95 transition-transform"
-                      onError={(e) => { e.target.onerror = null; e.target.src = '/favicon.svg'; }}
+                      referrerPolicy="no-referrer"
+                      onError={(e) => { 
+                        e.target.onerror = null; 
+                        e.target.style.display = 'none';
+                        const parent = e.target.parentElement;
+                        if (parent) {
+                          const fallbackDiv = document.createElement('div');
+                          fallbackDiv.className = "w-9 h-9 rounded-full bg-[#DFBA73]/10 border border-[#DFBA73]/20 flex items-center justify-center text-[#DFBA73] font-bold text-sm";
+                          fallbackDiv.textContent = u.nickname ? u.nickname.charAt(0) : "성";
+                          parent.insertBefore(fallbackDiv, e.target);
+                        }
+                      }}
                     />
                   ) : (
                     <div className="w-9 h-9 rounded-full bg-[#DFBA73]/10 border border-[#DFBA73]/20 flex items-center justify-center text-[#DFBA73] font-bold text-sm">
@@ -2806,6 +2839,15 @@ const OnboardingView = ({ user, onCompleteOnboarding, onCancel }) => {
                 src={user.profileImage} 
                 alt="Profile" 
                 className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.style.display = 'none';
+                  const parent = e.target.parentElement;
+                  if (parent) {
+                    parent.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-9 h-9 text-[#DFBA73]/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>`;
+                  }
+                }}
               />
             ) : (
               <svg xmlns="http://www.w3.org/2000/svg" className="w-9 h-9 text-[#DFBA73]/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
@@ -3159,7 +3201,7 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
       const profileMap = {};
       (data || []).forEach(item => {
         if (item.users?.nickname) {
-          profileMap[item.users.nickname] = item.users.profile_image || '';
+          profileMap[item.users.nickname] = cleanProfileImageUrl(item.users.profile_image);
         }
       });
       setUserProfiles(prev => ({ ...prev, ...profileMap }));
@@ -3249,7 +3291,7 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
       const profileMap = {};
       (data || []).forEach(item => {
         if (item.users?.nickname) {
-          profileMap[item.users.nickname] = item.users.profile_image || '';
+          profileMap[item.users.nickname] = cleanProfileImageUrl(item.users.profile_image);
         }
       });
       setUserProfiles(prev => ({ ...prev, ...profileMap }));
@@ -3487,7 +3529,7 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
       const profileMap = {};
       (data || []).forEach(item => {
         if (item.cards?.users?.nickname) {
-          profileMap[item.cards.users.nickname] = item.cards.users.profile_image || '';
+          profileMap[item.cards.users.nickname] = cleanProfileImageUrl(item.cards.users.profile_image);
         }
       });
       setUserProfiles(prev => ({ ...prev, ...profileMap }));
@@ -3984,7 +4026,7 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
               await supabase.from('users').upsert({
                 id: userData.id,
                 nickname: savedNickname,
-                profile_image: userData.profileImage || ''
+                profile_image: cleanProfileImageUrl(userData.profileImage) || ''
               });
               showToast(`카카오 로그인 성공!`, 'success');
               fetchBookmarks(userData);
@@ -4451,7 +4493,7 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
         .upsert({
           id: user.id,
           nickname: nick,
-          profile_image: user.profileImage || ''
+          profile_image: cleanProfileImageUrl(user.profileImage) || ''
         });
 
       if (error) throw error;
@@ -5726,9 +5768,35 @@ return (
                     <div className="absolute inset-0 rounded-full border border-[#DFBA73] animate-ping opacity-15" />
                     <div className="w-14 h-14 rounded-full border-2 border-[#DFBA73]/50 flex items-center justify-center bg-gradient-to-tr from-[#1E1812] to-black text-[#DFBA73] shadow-[0_0_15px_rgba(223,186,115,0.2)] overflow-hidden shrink-0">
                       {userProfiles && userProfiles[activeProfileUser] ? (
-                        <img src={userProfiles[activeProfileUser]} alt="profile" className="w-full h-full object-cover animate-fade-in" />
+                        <img 
+                          src={userProfiles[activeProfileUser]} 
+                          alt="profile" 
+                          className="w-full h-full object-cover animate-fade-in" 
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.style.display = 'none';
+                            const parent = e.target.parentElement;
+                            if (parent) {
+                              parent.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-[#DFBA73]"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
+                            }
+                          }}
+                        />
                       ) : (activeProfileUser === nickname || activeProfileUser === "은혜나눔인") && user && user.profileImage ? (
-                        <img src={user.profileImage} alt="profile" className="w-full h-full object-cover animate-fade-in" />
+                        <img 
+                          src={user.profileImage} 
+                          alt="profile" 
+                          className="w-full h-full object-cover animate-fade-in" 
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.style.display = 'none';
+                            const parent = e.target.parentElement;
+                            if (parent) {
+                              parent.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-[#DFBA73]"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
+                            }
+                          }}
+                        />
                       ) : (
                         <Icons.User />
                       )}
@@ -6248,7 +6316,20 @@ return (
                     >
                       <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center bg-stone-900 overflow-hidden shrink-0 active:scale-95 transition-transform">
                         {avatar ? (
-                          <img src={avatar} alt="avatar" className="w-full h-full object-cover" />
+                          <img 
+                            src={avatar} 
+                            alt="avatar" 
+                            className="w-full h-full object-cover" 
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.style.display = 'none';
+                              const parent = e.target.parentElement;
+                              if (parent) {
+                                parent.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-stone-400"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
+                              }
+                            }}
+                          />
                         ) : (
                           <Icons.User />
                         )}
