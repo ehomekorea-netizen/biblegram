@@ -316,35 +316,15 @@ const isValidBibleReference = (input) => {
 
   // 2. Linear and safe book check
   const books = [
-    "창세기", "창", "출애굽기", "출", "레위기", "레", "민수기", "민", "신명기", "신", 
-    "여호수아", "여호", "수", "사사기", "사사", "삿", "룻기", "룻", "사무엘상", "삼상", 
-    "사무엘하", "삼하", "열왕기상", "왕상", "열왕기하", "왕하", "역대기상", "역대상", "대상", 
-    "역대기하", "역대하", "대하", "에스라", "스", "느헤미야", "느", "에스더", "에", "욥기", "욥", 
-    "시편", "시", "잠언", "잠", "전도서", "전", "아가", "아", "이사야", "사", 
-    "예레미야", "렘", "예레미야애가", "예레미야 애가", "애", "렘애", "에스겔", "겔", 
-    "다니엘", "단", "호세아", "호", "요엘", "욜", "아모스", "암", "오바댜", "옵", 
-    "요나", "욘", "미가", "미", "나훔", "나", "하박국", "합", "스바냐", "습", 
-    "학개", "학", "스가랴", "슥", "말라기", "말", "마태복음", "마태", "마", 
-    "마가복음", "마가", "막", "누가복음", "누가", "누", "요한복음", "요한", "요", 
-    "사도행전", "행", "로마서", "롬", "고린도전서", "고전", "고린도후서", "고후", 
-    "갈라디아서", "갈", "에베소서", "엡", "빌립보서", "빌", "골로새서", "골", 
-    "데살로니가전서", "살전", "데살로니가후서", "살후", "디모데전서", "딤전", 
-    "디모데후서", "딤후", "디도서", "딛", "빌레몬서", "몬", "히브리서", "히", 
-    "야고보서", "야", "베드로전서", "벧전", "베드로후서", "벧후", "요한일서", "요일", 
-    "요한이서", "요이", "요한삼서", "요삼", "유다서", "유", "요한계시록", "계시록", "계",
-    "Genesis", "Gen", "Exodus", "Ex", "Leviticus", "Lev", "Numbers", "Num", "Deuteronomy", "Deut",
-    "Joshua", "Josh", "Judges", "Judg", "Ruth", "1 Samuel", "1 Sam", "2 Samuel", "2 Sam",
-    "1 Kings", "2 Kings", "1 Chronicles", "1 Chr", "2 Chronicles", "2 Chr",
-    "Ezra", "Nehemiah", "Neh", "Esther", "Esth", "Job", "Psalms", "Ps", "Psalm", "Proverbs", "Prov",
-    "Ecclesiastes", "Eccles", "Song of Songs", "Song", "Isaiah", "Isa", "Jeremiah", "Jer",
-    "Lamentations", "Lam", "Ezekiel", "Ezek", "Daniel", "Dan", "Hosea", "Hos", "Joel", "Amos",
-    "Obadiah", "Obad", "Jonah", "Micah", "Mic", "Nahum", "Nah", "Habakkuk", "Hab", "Zephaniah", "Zeph",
-    "Haggai", "Hag", "Zechariah", "Zech", "Malachi", "Mal", "Matthew", "Matt", "Mark", "Luke", "John",
-    "Acts", "Romans", "Rom", "1 Corinthians", "1 Cor", "2 Corinthians", "2 Cor", "Galatians", "Gal",
-    "Ephesians", "Eph", "Philippians", "Phil", "Colossians", "Col", "1 Thessalonians", "1 Thess",
-    "2 Thessalonians", "2 Thess", "1 Timothy", "1 Tim", "2 Timothy", "2 Tim", "Titus", "Philemon",
-    "Philem", "Hebrews", "Heb", "James", "Jas", "1 Peter", "1 Pet", "2 Peter", "2 Pet", "1 John", "1 Jn",
-    "2 John", "2 Jn", "3 John", "3 Jn", "Jude", "Revelation", "Rev"
+    "창세기", "출애굽기", "레위기", "민수기", "신명기", "여호수아", "사사기", "룻기", 
+    "사무엘상", "사무엘하", "열왕기상", "열왕기하", "역대기상", "역대상", "역대기하", "역대하", 
+    "에스라", "느헤미야", "에스더", "욥기", "시편", "잠언", "전도서", "아가", 
+    "이사야", "예레미야", "예레미야애가", "예레미야 애가", "에스겔", "다니엘", "호세아", "요엘", 
+    "아모스", "오바댜", "요나", "미가", "나훔", "하박국", "스바냐", "학개", 
+    "스가랴", "말라기", "마태복음", "마가복음", "누가복음", "요한복음", "사도행전", "로마서", 
+    "고린도전서", "고린도후서", "갈라디아서", "에베소서", "빌립보서", "골로새서", "데살로니가전서", "데살로니가후서", 
+    "디모데전서", "디모데후서", "디도서", "빌레몬서", "히브리서", "야고보서", "베드로전서", "베드로후서", 
+    "요한일서", "요한이서", "요한삼서", "유다서", "요한계시록"
   ];
 
   // We find if the trimmed input starts with any of the valid book names, followed by chapter numbers.
@@ -395,35 +375,15 @@ const normalizeBibleReference = (input) => {
   if (!input) return "";
   const trimmed = input.trim();
   const books = [
-    "창세기", "창", "출애굽기", "출", "레위기", "레", "민수기", "민", "신명기", "신", 
-    "여호수아", "여호", "수", "사사기", "사사", "삿", "룻기", "룻", "사무엘상", "삼상", 
-    "사무엘하", "삼하", "열왕기상", "왕상", "열왕기하", "왕하", "역대기상", "역대상", "대상", 
-    "역대기하", "역대하", "대하", "에스라", "스", "느헤미야", "느", "에스더", "에", "욥기", "욥", 
-    "시편", "시", "잠언", "잠", "전도서", "전", "아가", "아", "이사야", "사", 
-    "예레미야", "렘", "예레미야애가", "예레미야 애가", "애", "렘애", "에스겔", "겔", 
-    "다니엘", "단", "호세아", "호", "요엘", "욜", "아모스", "암", "오바댜", "옵", 
-    "요나", "욘", "미가", "미", "나훔", "나", "하박국", "합", "스바냐", "습", 
-    "학개", "학", "스가랴", "슥", "말라기", "말", "마태복음", "마태", "마", 
-    "마가복음", "마가", "막", "누가복음", "누가", "누", "요한복음", "요한", "요", 
-    "사도행전", "행", "로마서", "롬", "고린도전서", "고전", "고린도후서", "고후", 
-    "갈라디아서", "갈", "에베소서", "엡", "빌립보서", "빌", "골로새서", "골", 
-    "데살로니가전서", "살전", "데살로니가후서", "살후", "디모데전서", "딤전", 
-    "디모데후서", "딤후", "디도서", "딛", "빌레몬서", "몬", "히브리서", "히", 
-    "야고보서", "야", "베드로전서", "벧전", "베드로후서", "벧후", "요한일서", "요일", 
-    "요한이서", "요이", "요한삼서", "요삼", "유다서", "유", "요한계시록", "계시록", "계",
-    "Genesis", "Gen", "Exodus", "Ex", "Leviticus", "Lev", "Numbers", "Num", "Deuteronomy", "Deut",
-    "Joshua", "Josh", "Judges", "Judg", "Ruth", "1 Samuel", "1 Sam", "2 Samuel", "2 Sam",
-    "1 Kings", "2 Kings", "1 Chronicles", "1 Chr", "2 Chronicles", "2 Chr",
-    "Ezra", "Nehemiah", "Neh", "Esther", "Esth", "Job", "Psalms", "Ps", "Psalm", "Proverbs", "Prov",
-    "Ecclesiastes", "Eccles", "Song of Songs", "Song", "Isaiah", "Isa", "Jeremiah", "Jer",
-    "Lamentations", "Lam", "Ezekiel", "Ezek", "Daniel", "Dan", "Hosea", "Hos", "Joel", "Amos",
-    "Obadiah", "Obad", "Jonah", "Micah", "Mic", "Nahum", "Nah", "Habakkuk", "Hab", "Zephaniah", "Zeph",
-    "Haggai", "Hag", "Zechariah", "Zech", "Malachi", "Mal", "Matthew", "Matt", "Mark", "Luke", "John",
-    "Acts", "Romans", "Rom", "1 Corinthians", "1 Cor", "2 Corinthians", "2 Cor", "Galatians", "Gal",
-    "Ephesians", "Eph", "Philippians", "Phil", "Colossians", "Col", "1 Thessalonians", "1 Thess",
-    "2 Thessalonians", "2 Thess", "1 Timothy", "1 Tim", "2 Timothy", "2 Tim", "Titus", "Philemon",
-    "Philem", "Hebrews", "Heb", "James", "Jas", "1 Peter", "1 Pet", "2 Peter", "2 Pet", "1 John", "1 Jn",
-    "2 John", "2 Jn", "3 John", "3 Jn", "Jude", "Revelation", "Rev"
+    "창세기", "출애굽기", "레위기", "민수기", "신명기", "여호수아", "사사기", "룻기", 
+    "사무엘상", "사무엘하", "열왕기상", "열왕기하", "역대기상", "역대상", "역대기하", "역대하", 
+    "에스라", "느헤미야", "에스더", "욥기", "시편", "잠언", "전도서", "아가", 
+    "이사야", "예레미야", "예레미야애가", "예레미야 애가", "에스겔", "다니엘", "호세아", "요엘", 
+    "아모스", "오바댜", "요나", "미가", "나훔", "하박국", "스바냐", "학개", 
+    "스가랴", "말라기", "마태복음", "마가복음", "누가복음", "요한복음", "사도행전", "로마서", 
+    "고린도전서", "고린도후서", "갈라디아서", "에베소서", "빌립보서", "골로새서", "데살로니가전서", "데살로니가후서", 
+    "디모데전서", "디모데후서", "디도서", "빌레몬서", "히브리서", "야고보서", "베드로전서", "베드로후서", 
+    "요한일서", "요한이서", "요한삼서", "유다서", "요한계시록"
   ];
   const sortedBooks = [...books].sort((a, b) => b.length - a.length);
   

@@ -29,3 +29,4 @@ inspect_cards.cjs
 inspect_comment_db.js
 *.log
 *.txt
+.env*
