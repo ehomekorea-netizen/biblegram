@@ -1,6 +1,68 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+
+// ==========================================
+// 0. 성소 릴리즈 업데이트 내역 데이터 정의 (사용자 관점 요약)
+// ==========================================
+const BIBLEGRAM_UPDATES = [
+  {
+    version: "v1.8.2",
+    date: "2026.05.30",
+    title: "묵상 정렬 고도화 및 음향 재생 편의성 개선",
+    details: [
+      "은혜광장에서 말씀 카드 스크롤 이동 시, 재생 중이던 낭독 음향(TTS)이 이어서 재생되지 않고 언제나 처음부터 낭독되도록 재생 편의성을 높였습니다.",
+      "내 서재와 타인의 서재 등 모든 묵상 공간에서 당겨서 새로고침할 때에도 24시간 피드 셔플 알고리즘의 간섭 없이 언제나 가장 깊고 맑은 최신순 정렬을 엄격하게 유지합니다."
+    ]
+  },
+  {
+    version: "v1.8.1",
+    date: "2026.05.28",
+    title: "소통 미학 완성 및 안드로이드 사용성 대개편",
+    details: [
+      "정식 앱 마켓 출시 전 임시 배포 방식에 맞춰, PWA 홈 화면 추가 시 노출되던 시스템 잔여 텍스트를 정밀 제거하고 브랜딩을 정비하였습니다.",
+      "성소 소식을 한눈에 파악할 수 있는 고해상도 인포그래픽 시안을 초간결 레이아웃으로 개편하여 정보 인지성을 비약적으로 높였습니다.",
+      "수동으로 설치 안내를 보거나 다시 업데이트 내역으로 순환 탐색할 때, 두 팝업의 하단 닫기/이동 버튼을 동일한 샴페인 골드 캡슐 규격으로 완치하여 극상의 미적 대칭을 맞추었습니다.",
+      "로그인 유저를 포함한 모든 소중한 성도님들께서 앱을 재실행하거나 새로고침할 때에도 공지 팝업이 로직 오류 없이 부드럽게 나타나도록 연동을 완료했습니다."
+    ]
+  },
+  {
+    version: "v1.8.0",
+    date: "2026.05.27",
+    title: "소통 강화 및 영적 교제 안정화",
+    details: [
+      "말씀 카드를 카카오톡으로 직접 전송할 수 있는 카카오톡 공유 SDK 연동을 마쳤습니다.",
+      "오늘의 고백을 더욱 깊고 간결하게 묵상할 수 있도록 200자 제한 및 실시간 글자 수 안내 기능을 도입했습니다.",
+      "설정 모달 내에서 본인의 데이터를 직접 정화할 수 있는 안전한 회원 탈퇴 시스템을 구축했습니다.",
+      "특정 모바일 기기에서 발생하던 카카오 공유 4019 에러를 클라이언트 키 보안 보완을 통해 완벽히 해결했습니다.",
+      "무소음 푸시 토큰의 영구 보존 주기를 7일 간격으로 정교하게 조율하여 기기 전력과 트래픽 부담을 최적화했습니다."
+    ]
+  },
+  {
+    version: "v1.7.0",
+    date: "2026.05.25",
+    title: "성소 브랜딩 및 로직 대개편",
+    details: [
+      "홈 화면 추가 시 한국어 이름 '바이블그램' 및 황금 십자가 PWA 고화질 엠블럼을 정식 탑재했습니다.",
+      "음성 오디오 영구 브라우저 캐싱(1년 만기)을 적용하여 기기 용량 부담 없이 다운로드 데이터 트래픽 소모를 차단했습니다.",
+      "모바일 브라우저 보안 제약을 완벽히 우회하는 수동 클릭 제스처 기반 '하늘빛 알림 연동' 모달을 이식했습니다.",
+      "내가 생성한 말씀 카드에 달린 타인의 모든 댓글을 카드 주인으로서 직접 영구 삭제 관리할 수 있도록 권한을 완치했습니다.",
+      "오디오 자동 재생이 제한될 시 화면을 방해하던 모든 연결 지연 토스트 알림을 청소하여 쾌적한 감상을 보장합니다."
+    ]
+  },
+  {
+    version: "v1.6.1",
+    date: "2026.05.25",
+    title: "성소 복원력 보강 및 낭독 안정화",
+    details: [
+      "말씀 낭독 음향의 클라우드 저장 최적화 및 로컬 백업 이식으로 재생 무결성을 극대화하였습니다.",
+      "지연 시 대체 낭독 토스트 안내 노출을 1.3초로 조율하고, 서서히 사라지는 Fade 애니메이션을 적용해 감성 가독성을 보호하였습니다.",
+      "성소 마스터 계정을 위한 통합 관리 권한 정립 및 삭제 권한 동기화를 완치하였습니다."
+    ]
+  }
+];
+
+const BIBLEGRAM_LATEST_VERSION = BIBLEGRAM_UPDATES[0].version;
 // ==========================================
 // 1. 테마 아이콘 정의 (strokeWidth 1.25~1.5의 세련된 아웃라인)
 // ==========================================
@@ -2919,6 +2981,9 @@ const [user, setUser] = useState(() => {
     const [selectedVoice, setSelectedVoice] = useState(() => localStorage.getItem('biblegram_selected_voice') || 'onyx');
     const [isGlobalMuted, setIsGlobalMuted] = useState(() => localStorage.getItem('biblegram_global_muted') === 'true');
     const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+    const [hasNewUpdate, setHasNewUpdate] = useState(() => {
+      return localStorage.getItem('biblegram_last_read_version') !== BIBLEGRAM_LATEST_VERSION;
+    });
     const [isConfirmCreateModalOpen, setIsConfirmCreateModalOpen] = useState(false);
     const [isLimitExhaustedExitModalOpen, setIsLimitExhaustedExitModalOpen] = useState(false);
     const [isPwaNoticeOpen, setIsPwaNoticeOpen] = useState(() => {
@@ -5733,10 +5798,13 @@ return (
                     {/* 설정 톱니바퀴 버튼 */}
                     <button 
                       onClick={() => setIsSettingsOpen(true)}
-                      className="w-10 h-10 flex items-center justify-center text-[#DFBA73] hover:text-white bg-[#1a1612]/80 border border-[#DFBA73]/30 rounded-full transition-all duration-300 active:scale-95 backdrop-blur-md shadow-lg"
+                      className="w-10 h-10 flex items-center justify-center text-[#DFBA73] hover:text-white bg-[#1a1612]/80 border border-[#DFBA73]/30 rounded-full transition-all duration-300 active:scale-95 backdrop-blur-md shadow-lg relative"
                       title="설정"
                     >
                       <Icons.Settings />
+                      {hasNewUpdate && (
+                        <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#ef4444] rounded-full border border-black animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.7)]" />
+                      )}
                     </button>
                   </div>
                 )}
@@ -6046,15 +6114,18 @@ return (
                   <div className="flex flex-col gap-3.5 mt-2">
                     
                     {/* 성소 소식 및 버전 정보 */}
-                    <div className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] p-4.5 rounded-2xl">
+                    <div className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] p-4.5 rounded-2xl relative overflow-hidden">
                       <div className="flex items-center gap-3 text-left">
-                        <div className="p-2.5 bg-[#DFBA73]/10 text-[#DFBA73] rounded-xl border border-[#DFBA73]/20 text-[18px] flex items-center justify-center shrink-0 w-[42px] h-[42px]">
+                        <div className="p-2.5 bg-[#DFBA73]/10 text-[#DFBA73] rounded-xl border border-[#DFBA73]/20 text-[18px] flex items-center justify-center shrink-0 w-[42px] h-[42px] relative">
                           📜
+                          {hasNewUpdate && (
+                            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#ef4444] rounded-full border border-black animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.7)]" />
+                          )}
                         </div>
                         <div className="flex flex-col gap-0.5">
                           <span className="text-[13.5px] font-bold text-stone-200 font-sans tracking-wide">성소 소식 및 버전 정보</span>
                           <span className="text-[9.5px] text-stone-500 font-sans leading-normal">
-                            현재 버전: v1.8.1
+                            현재 버전: {BIBLEGRAM_LATEST_VERSION}
                           </span>
                         </div>
                       </div>
@@ -6063,6 +6134,8 @@ return (
                         onClick={() => {
                           setIsSettingsOpen(false);
                           setIsUpdateModalOpen(true);
+                          localStorage.setItem('biblegram_last_read_version', BIBLEGRAM_LATEST_VERSION);
+                          setHasNewUpdate(false);
                         }}
                         className="py-2 px-3.5 rounded-xl border border-[#DFBA73]/30 hover:border-[#DFBA73] bg-[#DFBA73]/5 hover:bg-[#DFBA73]/10 text-[#DFBA73] text-[11px] font-bold transition-all active:scale-[0.98]"
                       >
@@ -6443,7 +6516,7 @@ return (
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex justify-between items-center pb-3 border-b border-[#DFBA73]/20">
-                    <h3 className="text-[#DFBA73] font-myeongjo font-bold text-[16px] tracking-wide">업데이트 내역 (v1.8.1)</h3>
+                    <h3 className="text-[#DFBA73] font-myeongjo font-bold text-[16px] tracking-wide">업데이트 내역 ({BIBLEGRAM_LATEST_VERSION})</h3>
                     <button 
                       onClick={() => setIsUpdateModalOpen(false)}
                       className="text-[#DFBA73]/60 hover:text-white transition-colors"
@@ -6453,62 +6526,28 @@ return (
                   </div>
                   
                   <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4.5 text-left text-[12.5px] text-stone-300 font-sans leading-relaxed max-h-[50vh] scrollbar-thin">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="px-1.5 py-0.5 rounded text-[9.5px] font-extrabold bg-[#DFBA73]/20 text-[#DFBA73] border border-[#DFBA73]/30">v1.8.1</span>
-                        <span className="text-[10px] text-stone-500 font-medium">2026.05.28</span>
+                    {BIBLEGRAM_UPDATES.map((update, idx) => (
+                      <div key={update.version}>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          {idx === 0 ? (
+                            <span className="px-1.5 py-0.5 rounded text-[9.5px] font-extrabold bg-[#DFBA73]/20 text-[#DFBA73] border border-[#DFBA73]/30">
+                              {update.version}
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded text-[9.5px] font-extrabold bg-stone-800 text-stone-400 border border-stone-700">
+                              {update.version}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-stone-500 font-medium">{update.date}</span>
+                        </div>
+                        <p className="font-bold text-stone-200 text-[13px] mb-1">{update.title}</p>
+                        <ul className="list-disc list-inside pl-1 text-[11px] text-stone-400 flex flex-col gap-1">
+                          {update.details.map((detail, dIdx) => (
+                            <li key={dIdx} className="leading-relaxed whitespace-pre-wrap break-keep">{detail}</li>
+                          ))}
+                        </ul>
                       </div>
-                      <p className="font-bold text-stone-200 text-[13px] mb-1">소통 미학 완성 및 안드로이드 사용성 대개편</p>
-                      <ul className="list-disc list-inside pl-1 text-[11px] text-stone-400 flex flex-col gap-1">
-                        <li>정식 앱 마켓 출시 전 임시 배포 방식에 맞춰, PWA 홈 화면 추가 시 노출되던 시스템 잔여 텍스트를 정밀 제거하고 브랜딩을 정비하였습니다.</li>
-                        <li>성소 소식을 한눈에 파악할 수 있는 고해상도 인포그래픽 시안을 초간결 레이아웃으로 개편하여 정보 인지성을 비약적으로 높였습니다.</li>
-                        <li>수동으로 설치 안내를 보거나 다시 업데이트 내역으로 순환 탐색할 때, 두 팝업의 하단 닫기/이동 버튼을 동일한 샴페인 골드 캡슐 규격으로 완치하여 극상의 미적 대칭을 맞추었습니다.</li>
-                        <li>로그인 유저를 포함한 모든 소중한 성도님들께서 앱을 재실행하거나 새로고침할 때에도 공지 팝업이 로직 오류 없이 부드럽게 나타나도록 연동을 완료했습니다.</li>
-                      </ul>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="px-1.5 py-0.5 rounded text-[9.5px] font-extrabold bg-stone-800 text-stone-400 border border-stone-700">v1.8.0</span>
-                        <span className="text-[10px] text-stone-500 font-medium">2026.05.27</span>
-                      </div>
-                      <p className="font-bold text-stone-200 text-[13px] mb-1">소통 강화 및 영적 교제 안정화</p>
-                      <ul className="list-disc list-inside pl-1 text-[11px] text-stone-400 flex flex-col gap-1">
-                        <li>말씀 카드를 카카오톡으로 직접 전송할 수 있는 카카오톡 공유 SDK 연동을 마쳤습니다.</li>
-                        <li>오늘의 고백을 더욱 깊고 간결하게 묵상할 수 있도록 200자 제한 및 실시간 글자 수 안내 기능을 도입했습니다.</li>
-                        <li>설정 모달 내에서 본인의 데이터를 직접 정화할 수 있는 안전한 회원 탈퇴 시스템을 구축했습니다.</li>
-                        <li>특정 모바일 기기에서 발생하던 카카오 공유 4019 에러를 클라이언트 키 보안 보완을 통해 완벽히 해결했습니다.</li>
-                        <li>무소음 푸시 토큰의 영구 보존 주기를 7일 간격으로 정교하게 조율하여 기기 전력과 트래픽 부담을 최적화했습니다.</li>
-                      </ul>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="px-1.5 py-0.5 rounded text-[9.5px] font-extrabold bg-stone-800 text-stone-400 border border-stone-700">v1.7.0</span>
-                        <span className="text-[10px] text-stone-500 font-medium">2026.05.25</span>
-                      </div>
-                      <p className="font-bold text-stone-200 text-[13px] mb-1">성소 브랜딩 및 로직 대개편</p>
-                      <ul className="list-disc list-inside pl-1 text-[11px] text-stone-400 flex flex-col gap-1">
-                        <li>홈 화면 추가 시 한국어 이름 '바이블그램' 및 황금 십자가 PWA 고화질 엠블럼을 정식 탑재했습니다.</li>
-                        <li>음성 오디오 영구 브라우저 캐싱(1년 만기)을 적용하여 기기 용량 부담 없이 다운로드 데이터 트래픽 소모를 차단했습니다.</li>
-                        <li>모바일 브라우저 보안 제약을 완벽히 우회하는 수동 클릭 제스처 기반 '하늘빛 알림 연동' 모달을 이식했습니다.</li>
-                        <li>내가 생성한 말씀 카드에 달린 타인의 모든 댓글을 카드 주인으로서 직접 영구 삭제 관리할 수 있도록 권한을 완치했습니다.</li>
-                        <li>오디오 자동 재생이 제한될 시 화면을 방해하던 모든 연결 지연 토스트 알림을 청소하여 쾌적한 감상을 보장합니다.</li>
-                      </ul>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="px-1.5 py-0.5 rounded text-[9.5px] font-extrabold bg-stone-800 text-stone-400 border border-stone-700">v1.6.1</span>
-                        <span className="text-[10px] text-stone-500 font-medium">2026.05.25</span>
-                      </div>
-                      <p className="font-bold text-stone-200 text-[13px] mb-1">성소 복원력 보강 및 낭독 안정화</p>
-                      <ul className="list-disc list-inside pl-1 text-[11px] text-stone-400 flex flex-col gap-1">
-                        <li>말씀 낭독 음향의 클라우드 저장 최적화 및 로컬 백업 이식으로 재생 무결성을 극대화하였습니다.</li>
-                        <li>지연 시 대체 낭독 토스트 안내 노출을 1.3초로 조율하고, 서서히 사라지는 Fade 애니메이션을 적용해 감성 가독성을 보호하였습니다.</li>
-                        <li>성소 마스터 계정을 위한 통합 관리 권한 정립 및 삭제 권한 동기화를 완치하였습니다.</li>
-                      </ul>
-                    </div>
+                    ))}
                   </div>
 
                   <div className="flex flex-col gap-2.5 shrink-0 w-full">
@@ -6704,6 +6743,8 @@ return (
                             e.stopPropagation();
                             setIsPwaNoticeOpen(false);
                             setIsUpdateModalOpen(true);
+                            localStorage.setItem('biblegram_last_read_version', BIBLEGRAM_LATEST_VERSION);
+                            setHasNewUpdate(false);
                           }}
                           className="w-full py-3.5 rounded-full border border-[#DFBA73]/40 hover:border-[#DFBA73] bg-[#DFBA73]/5 hover:bg-[#DFBA73]/10 text-[#543b17] text-[12.5px] font-extrabold active:scale-[0.98] transition-all text-center"
                         >
