@@ -3276,33 +3276,29 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
         ? mapped.filter(item => String(item.author_id) !== String(user.id))
         : mapped;
 
-      // [대안 A 개편] 하이브리드 피드 셔플 알고리즘 적용
-      // 1. 최근 24시간 이내의 카드 선별
-      const nowMs = Date.now();
-      const oneDayMs = 24 * 60 * 60 * 1000;
-      
-      const recentCards = filtered.filter(item => {
-        const createdAtMs = new Date(item.created_at).getTime();
-        return nowMs - createdAtMs <= oneDayMs;
-      });
-      
-      // 2. 최근 24시간 이내 카드를 무작위 셔플 (24시간 내 랜덤 노출)
-      const shuffledRecent = [...recentCards];
-      for (let i = shuffledRecent.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        const temp = shuffledRecent[i];
-        shuffledRecent[i] = shuffledRecent[j];
-        shuffledRecent[j] = temp;
+      // [신규 피드 노출 알고리즘]
+      // 1. 전체 피드 중 가장 최신 등록 카드 1개 선출
+      let finalFeed = [];
+      if (filtered.length > 0) {
+        // 복사본을 생성해 생성 시간순으로 내림차순 정렬하여 가장 최신 카드 식별
+        const sortedAll = [...filtered].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        const newestCard = sortedAll[0];
+        
+        // 2. 가장 최신 카드를 제외한 나머지 카드를 선별
+        const remaining = filtered.filter(item => item.id !== newestCard.id);
+        
+        // 3. 나머지 카드들을 무작위 셔플 (Fisher-Yates 셔플)
+        const shuffledRemaining = [...remaining];
+        for (let i = shuffledRemaining.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          const temp = shuffledRemaining[i];
+          shuffledRemaining[i] = shuffledRemaining[j];
+          shuffledRemaining[j] = temp;
+        }
+        
+        // 4. 맨 상단에 최신 카드 1개 배치 + 그 하단에 셔플된 나머지 카드들 병합
+        finalFeed = [newestCard, ...shuffledRemaining];
       }
-      
-      // 3. 나머지 과거 카드 분류 및 후순위 알고리즘 적용 (최신 등록순 정렬)
-      const recentIds = new Set(recentCards.map(c => c.id));
-      const remainingCards = filtered
-        .filter(item => !recentIds.has(item.id))
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      
-      // 4. 24시간 내 랜덤 카드 + 최신순 과거 카드 병합
-      const finalFeed = [...shuffledRecent, ...remainingCards];
       
       setFeedCards(finalFeed);
     } catch (err) {
