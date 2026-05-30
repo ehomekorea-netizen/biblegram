@@ -1312,7 +1312,14 @@ const handleAudioEnded = () => {
             playAudio();
           } else {
             setIsPlaying(false);
-            if (audioRef.current) audioRef.current.pause();
+            if (audioRef.current) {
+              audioRef.current.pause();
+              try {
+                audioRef.current.currentTime = 0;
+              } catch (e) {
+                console.warn("Failed to reset audio currentTime:", e);
+              }
+            }
             if (window.speechSynthesis) window.speechSynthesis.cancel();
             // 피드 스크롤 이탈 시 모든 오버레이 서랍 자동 닫기
             setIsCommentsOpen(false);
@@ -1329,6 +1336,14 @@ const handleAudioEnded = () => {
     return () => {
       if (currentCardRef) observer.unobserve(currentCardRef);
       if (window.speechSynthesis) window.speechSynthesis.cancel();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        try {
+          audioRef.current.currentTime = 0;
+        } catch (e) {
+          console.warn("Failed to reset audio currentTime in cleanup:", e);
+        }
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPreview, card.audio, isMuted]);
@@ -3272,7 +3287,8 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
           author: c.author_nickname,
           author_id: c.author_id,
           likes: c.likes_count,
-          commentCount: normalComments.length
+          commentCount: normalComments.length,
+          created_at: c.created_at
         };
       });
       setMyCreatedCards(mapped);
@@ -5083,9 +5099,11 @@ const getGreetingMessage = () => {
   const getCreatedCards = () => {
     const isOwnProfile = activeProfileUser === nickname || activeProfileUser === "은혜나눔인";
     if (isOwnProfile) {
-      return myCreatedCards;
+      return [...myCreatedCards].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     } else {
-      return feedCards.filter(c => c.author === activeProfileUser);
+      return feedCards
+        .filter(c => c.author === activeProfileUser)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
   };
 
