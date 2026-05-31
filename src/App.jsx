@@ -1008,9 +1008,11 @@ const audioRef = useRef(null);
           safeImageUrl = 'https:' + safeImageUrl;
         }
         
-        // 카카오 대시보드에 fal.media 및 queue.fal.run 도메인이 성도님에 의해 완벽하게 등록 완료되었으므로,
-        // 어떠한 썸네일 우회나 왜곡도 없이 성도님이 빚으신 원래 말씀/AI 성화 이미지 그대로 100% 실어 전송합니다!
-        if (!safeImageUrl || !safeImageUrl.startsWith('http')) {
+        // fal.ai 이미지 도메인(fal.media, fal.run)은 카카오 수집 로봇의 Cloudflare 방화벽 403 차단벽을 완벽 우회하고
+        // Supabase Storage 용량을 단 1Byte도 낭비하지 않도록, 전 세계 무료 퍼블릭 CDN 프록시인 weserv.nl 로 주소를 지능적으로 래핑하여 전송합니다!
+        if (safeImageUrl.includes('fal.run') || safeImageUrl.includes('fal.media')) {
+          safeImageUrl = `https://images.weserv.nl/?url=${encodeURIComponent(safeImageUrl)}&default=https://images.unsplash.com/photo-1544764200-d834fd210a23`;
+        } else if (!safeImageUrl || !safeImageUrl.startsWith('http')) {
           safeImageUrl = "https://images.unsplash.com/photo-1544764200-d834fd210a23?q=80&w=1080&auto=format&fit=crop";
         } else {
           try {
