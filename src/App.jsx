@@ -1066,24 +1066,12 @@ const audioRef = useRef(null);
           // Unsplash CDN은 카카오 봇의 스크랩을 100% 무조건 완벽 허용하므로, 프록시 없이 순수 원본 주소를 다이렉트로 전달!
           finalImageUrl = originImage;
         } else {
-          // 2. fal.ai 등 외부 고화질 성화인 경우:
-          // 말씀 카드 생성 시점에 Supabase Storage에 1:1 정사각형으로 미리 pre-render 및 업로드 완료된
-          // 영구 정적 썸네일 주소를 동기식으로 광속 획득하여 딜레이 0초로 즉시 쏩니다!
-          const { data: publicUrlData } = supabase.storage
-            .from('audio')
-            .getPublicUrl(`posts/thumb_${card.id}.jpg`);
-          
-          const supabaseThumbUrl = publicUrlData?.publicUrl || '';
-          
-          // 2중 안전 장치: 예전 구버전 카드들은 Supabase 스토리지에 썸네일이 없을 수 있으므로,
-          // 그 경우에만 카카오 봇 1초 타임아웃을 100% 통과하는 글로벌 가속 CDN 리사이저(wsrv.nl)로 2중 안전 폴백!
+          // 2. fal.ai, kie.ai 등 모든 외부 고화질 성화인 경우:
+          // 카카오 봇의 1초 타임아웃을 100% 회피하고, fal.ai 측의 카카오 크롤러 차단 정책을 무력화하기 위해,
+          // Cloudflare 초고속 글로벌 CDN 기반의 이미지 가속/리사이저 서비스(wsrv.nl)를 통해
+          // 실시간 1:1 Aspect Fill 정사각형 크롭(fit=cover, 400x400)된 청정 정적 썸네일을 0초 만에 다이렉트로 매핑합니다!
           const encodedOrigin = encodeURIComponent(originImage);
-          const fallbackResizerUrl = `https://wsrv.nl/?url=${encodedOrigin}&w=400&h=400&fit=cover`;
-
-          // 카카오 개발자 센터 도메인 가드를 타며, 썸네일이 존재하는 신규 카드는 Supabase Storage 경로로,
-          // 구버전 카드는 wsrv.nl로 자연스럽게 2중 보호하여 절대 엑스박스가 뜨지 않도록 완성합니다.
-          const isNewCard = card.created_at && (new Date(card.created_at).getTime() > new Date('2026-05-31T13:30:00Z').getTime());
-          finalImageUrl = isNewCard ? supabaseThumbUrl : fallbackResizerUrl;
+          finalImageUrl = `https://wsrv.nl/?url=${encodedOrigin}&w=400&h=400&fit=cover`;
         }
 
         // 지연 시간 0%의 순수한 카카오톡 SDK 피드 메시지 공유 즉시 격발!
@@ -5205,66 +5193,6 @@ const uploadAudioToStorage = async (base64Data, userId) => {
   }
 };
 
-const uploadThumbnailToStorage = async (imageUrl, cardId) => {
-  try {
-    let finalUrl = imageUrl;
-    if (finalUrl.startsWith('//')) {
-      finalUrl = 'https:' + finalUrl;
-    }
-    
-    // 1. 이미지 로드 및 1:1 Aspect Fill 캔버스 크롭
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.src = finalUrl;
-    
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = (e) => reject(new Error("Image load failed for thumbnail generation"));
-    });
-
-    const canvas = document.createElement('canvas');
-    canvas.width = 400;
-    canvas.height = 400;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const imgRatio = img.width / img.height;
-    let drawWidth = canvas.width;
-    let drawHeight = canvas.height;
-    let offsetX = 0;
-    let offsetY = 0;
-
-    if (imgRatio > 1) {
-      drawWidth = canvas.height * imgRatio;
-      offsetX = (canvas.width - drawWidth) / 2;
-    } else {
-      drawHeight = canvas.width / imgRatio;
-      offsetY = (canvas.height - drawHeight) / 2;
-    }
-
-    ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-
-    // 2. Blob 추출 및 Supabase Storage 업로드
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
-    if (!blob) return;
-
-    const fileName = `posts/thumb_${cardId}.jpg`;
-    
-    // 기존 썸네일이 있을 수 있으므로 upsert: true로 덮어쓰기 허용하여 영구 사수!
-    const { error } = await supabase.storage
-      .from('audio')
-      .upload(fileName, blob, {
-        contentType: 'image/jpeg',
-        cacheControl: 'max-age=31536000, public, immutable',
-        upsert: true
-      });
-
-    if (error) throw error;
-    console.log("Supabase storage 1:1 crop thumbnail successfully pre-rendered & uploaded for card ID:", cardId);
-  } catch (err) {
-    console.error("Failed to pre-render or upload thumbnail to Supabase Storage:", err);
-  }
-};
 
 const handlePublish = async () => {
       if (!user || !user.id) return;
@@ -5302,10 +5230,7 @@ const handlePublish = async () => {
           
         if (error) throw error;
 
-        // ⭐️ 성화 1:1 정사각형 썸네일 미리 pre-render 및 Supabase Storage 업로드 실행 (이중 공유 엑스박스 완치)
-        if (currentResult.image && !currentResult.image.includes('unsplash.com')) {
-          await uploadThumbnailToStorage(currentResult.image, data.id);
-        }
+
         
         // 성도 교우들의 활발한 활동 알림 트리거 (성물 10개 단위 누적 시 자동 푸시 전송)
         fetch('/api/activity-push', {
