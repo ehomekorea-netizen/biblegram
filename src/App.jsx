@@ -996,117 +996,25 @@ const audioRef = useRef(null);
     }
   };
 
-  // 카카오 전용 '순수 원본 AI 성화' 카카오 서버 업로드 헬퍼
-  const uploadCleanShareImage = async (cardObj) => {
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        resolve(null);
-      }, 5000); // 5초 내 미완료 시 즉각 폴백
-
-      try {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.src = cardObj.image || '';
-
-        img.onload = () => {
-          try {
-            const canvas = document.createElement('canvas');
-            // 카카오 권장 규격 800 x 418 황금 비율
-            canvas.width = 800;
-            canvas.height = 418;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-              clearTimeout(timeout);
-              return resolve(null);
-            }
-
-            // 1. 순수 원본 성화 이미지를 찌그러짐 없이 비율에 맞춰 중앙 중심 크롭 렌더링 (Aspect Fill)
-            const imgRatio = img.width / img.height;
-            const canvasRatio = canvas.width / canvas.height;
-            let drawWidth = canvas.width;
-            let drawHeight = canvas.height;
-            let offsetX = 0;
-            let offsetY = 0;
-
-            if (imgRatio > canvasRatio) {
-              drawWidth = canvas.height * imgRatio;
-              offsetX = (canvas.width - drawWidth) / 2;
-            } else {
-              drawHeight = canvas.width / imgRatio;
-              offsetY = (canvas.height - drawHeight) / 2;
-            }
-
-            // 어설픈 글씨나 투명 레이어 장식 일절 없이 오직 고화질 원본 성화만 100% 수려하게 그립니다.
-            ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-
-            // 2. Blob 변환 후 카카오 서버 업로드
-            canvas.toBlob(async (blob) => {
-              if (!blob) {
-                clearTimeout(timeout);
-                return resolve(null);
-              }
-
-              try {
-                const file = new File([blob], 'share_card.jpg', { type: 'image/jpeg' });
-                window.Kakao.Share.uploadImage({
-                  file: [file]
-                }).then((res) => {
-                  clearTimeout(timeout);
-                  if (res && res.infos && res.infos.original && res.infos.original.url) {
-                    resolve(res.infos.original.url);
-                  } else {
-                    resolve(null);
-                  }
-                }).catch(() => {
-                  clearTimeout(timeout);
-                  resolve(null);
-                });
-              } catch (e2) {
-                clearTimeout(timeout);
-                resolve(null);
-              }
-            }, 'image/jpeg', 0.95); // 95%의 고화질 퀄리티 보장
-
-          } catch (errC) {
-            clearTimeout(timeout);
-            resolve(null);
-          }
-        };
-
-        img.onerror = () => {
-          clearTimeout(timeout);
-          resolve(null);
-        };
-
-      } catch (e3) {
-        clearTimeout(timeout);
-        resolve(null);
-      }
-    });
-  };
-
   const handleShareClick = async (e) => {
     e.stopPropagation();
     
-    // Kakao SDK 공유 우선 시도 (iOS/안드로이드 기기 격차 전면 해소)
+    // Kakao SDK 공유 우선 시도 (iOS/안드로이드 기기 격차 및 방화벽 CORS 문제 전면 우회)
     if (window.Kakao && window.Kakao.isInitialized()) {
       try {
-        onShowToast("고화질 성화 공유 이미지를 은혜롭게 준비하고 있습니다...", "info");
+        onShowToast("고화질 성화 공유를 준비하고 있습니다...", "info");
         
-        // 1안) 카카오 전용 '순수 원본 고화질 AI 성화' 업로드 로직 가동
-        const uploadedUrl = await uploadCleanShareImage(card);
-        let safeImageUrl = uploadedUrl;
-        
-        // 만약 캔버스 합성/업로드가 CORS 에러나 타임아웃으로 실패한 경우, 원본 이미지 전송으로 안전하게 폴백
-        if (!safeImageUrl) {
-          safeImageUrl = card.image || '';
-          if (safeImageUrl.startsWith('//')) {
-            safeImageUrl = 'https:' + safeImageUrl;
-          }
-          if (!safeImageUrl || !safeImageUrl.startsWith('http')) {
-            safeImageUrl = "https://images.unsplash.com/photo-1544764200-d834fd210a23?q=80&w=1080&auto=format&fit=crop";
-          }
+        // fal.ai의 Cloudflare 403 차단 및 브라우저 CORS 캔버스 오염을 100% 우회하는 마법의 서버 이미지 프록시 기동
+        let originImage = card.image || '';
+        if (originImage.startsWith('//')) {
+          originImage = 'https:' + originImage;
         }
+        if (!originImage || !originImage.startsWith('http')) {
+          originImage = "https://images.unsplash.com/photo-1544764200-d834fd210a23?q=80&w=800";
+        }
+
+        // 프록시 API를 통과시켜 카카오 봇에게 보안 필터를 무력화하고 다운로드할 수 있게 주소 설계
+        const safeImageUrl = `${window.location.origin}/api/image-proxy?url=${encodeURIComponent(originImage)}`;
 
         window.Kakao.Share.sendDefault({
           objectType: 'feed',
@@ -1114,6 +1022,8 @@ const audioRef = useRef(null);
             title: '🌅 바이블그램 은혜의 말씀',
             description: card.text,
             imageUrl: safeImageUrl,
+            imageWidth: 400,  // 성도님이 원하시는 고결한 1:1 정사각형 비율 가로 크기 사수
+            imageHeight: 400, // 성도님이 원하시는 고결한 1:1 정사각형 비율 세로 크기 사수
             link: {
               mobileWebUrl: `${window.location.origin}?cardId=${card.id}`,
               webUrl: `${window.location.origin}?cardId=${card.id}`,
