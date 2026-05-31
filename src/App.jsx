@@ -1013,8 +1013,8 @@ const audioRef = useRef(null);
           originImage = "https://images.unsplash.com/photo-1544764200-d834fd210a23?q=80&w=800";
         }
 
-        // 프록시 API를 통과시켜 카카오 봇에게 보안 필터를 무력화하고 다운로드할 수 있게 주소 설계
-        const safeImageUrl = `${window.location.origin}/api/image-proxy?url=${encodeURIComponent(originImage)}`;
+        // 프록시 API를 통과시켜 카카오 봇에게 보안 필터를 무력화하고 다운로드할 수 있게 주소 설계 (강력한 카카오 캐시 버스터 탑재)
+        const safeImageUrl = `${window.location.origin}/api/image-proxy?url=${encodeURIComponent(originImage)}&t=${new Date().getTime()}`;
 
         window.Kakao.Share.sendDefault({
           objectType: 'feed',
