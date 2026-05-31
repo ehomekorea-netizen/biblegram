@@ -999,12 +999,9 @@ const audioRef = useRef(null);
   const handleShareClick = async (e) => {
     e.stopPropagation();
     
-    // Kakao SDK 공유 우선 시도 (iOS/안드로이드 기기 격차 및 방화벽 CORS 문제 전면 우회)
+    // Kakao SDK 공유 우선 시도 (CORS 및 카카오 봇의 쿼리 주소 스크랩 오류 원천 박멸)
     if (window.Kakao && window.Kakao.isInitialized()) {
       try {
-        onShowToast("고화질 성화 공유를 준비하고 있습니다...", "info");
-        
-        // fal.ai의 Cloudflare 403 차단 및 브라우저 CORS 캔버스 오염을 100% 우회하는 마법의 서버 이미지 프록시 기동
         let originImage = card.image || '';
         if (originImage.startsWith('//')) {
           originImage = 'https:' + originImage;
@@ -1013,27 +1010,124 @@ const audioRef = useRef(null);
           originImage = "https://images.unsplash.com/photo-1544764200-d834fd210a23?q=80&w=800";
         }
 
-        // 특수문자 및 Unsplash 쿼리(&q=80&w=1080) 유실 문제를 100% 원천 예방하는 안전한 URL 친화적 Base64 인코딩
-        let encodedUrl = '';
-        try {
-          encodedUrl = btoa(encodeURIComponent(originImage).replace(/%([0-9A-F]{2})/g, (match, p1) => {
-            return String.fromCharCode(parseInt(p1, 16));
-          }));
-        } catch (eB) {
-          encodedUrl = btoa(originImage); // 예비 폴백
-        }
+        const isUnsplash = originImage.includes('unsplash.com');
+        let finalImageUrl = '';
 
-        // 프록시 API를 통과시켜 카카오 봇에게 보안 필터를 무력화하고 다운로드할 수 있게 주소 설계 (강력한 카카오 캐시 버스터 탑재)
-        const safeImageUrl = `${window.location.origin}/api/image-proxy?code=${encodedUrl}&t=${new Date().getTime()}`;
+        if (isUnsplash) {
+          // 1. Unsplash 이미지인 경우: 
+          // Unsplash CDN은 카카오 봇의 스크랩을 100% 무조건 완벽 허용하므로, 프록시 없이 순수 원본 주소를 다이렉트로 전달!
+          finalImageUrl = originImage;
+        } else {
+          // 2. fal.ai 등 차단 필터가 걸려있는 외부 고화질 성화인 경우:
+          // 브라우저 캔버스가 오염(Tainted CORS)되지 않도록, 백엔드 이미지 프록시 주소를 Image src로 사용하여 다운로드받고
+          // 이를 1:1 정사각형 고화질 크롭 이미지로 렌더링한 뒤 카카오 서버에 직접 얹어 카카오 공식 URL(k.kakaocdn.net)을 발급받아 공유합니다!
+          onShowToast("고화질 성화 공유 이미지를 준비하고 있습니다...", "info");
+
+          let encodedUrl = '';
+          try {
+            encodedUrl = btoa(encodeURIComponent(originImage).replace(/%([0-9A-F]{2})/g, (match, p1) => {
+              return String.fromCharCode(parseInt(p1, 16));
+            }));
+          } catch (eB) {
+            encodedUrl = btoa(originImage);
+          }
+
+          const proxySrc = `${window.location.origin}/api/image-proxy?code=${encodedUrl}&t=${new Date().getTime()}`;
+
+          finalImageUrl = await new Promise((resolve) => {
+            const timeout = setTimeout(() => {
+              // 5초 내 미완료 시 카카오 원본 리다이렉트 주소로 안전 폴백
+              resolve(proxySrc);
+            }, 6000);
+
+            try {
+              const img = new Image();
+              img.crossOrigin = "anonymous"; // 프록시 API를 거치므로 CORS 100% 통과!
+              img.src = proxySrc;
+
+              img.onload = () => {
+                try {
+                  const canvas = document.createElement('canvas');
+                  // 성도님이 원하시는 영롱한 1:1 정사각형 비율 썸네일 해상도 사수
+                  canvas.width = 600;
+                  canvas.height = 600;
+                  const ctx = canvas.getContext('2d');
+                  if (!ctx) {
+                    clearTimeout(timeout);
+                    return resolve(proxySrc);
+                  }
+
+                  // 1:1 비율 Aspect Fill 렌더링
+                  const imgRatio = img.width / img.height;
+                  let drawWidth = canvas.width;
+                  let drawHeight = canvas.height;
+                  let offsetX = 0;
+                  let offsetY = 0;
+
+                  if (imgRatio > 1) {
+                    drawWidth = canvas.height * imgRatio;
+                    offsetX = (canvas.width - drawWidth) / 2;
+                  } else {
+                    drawHeight = canvas.width / imgRatio;
+                    offsetY = (canvas.height - drawHeight) / 2;
+                  }
+
+                  ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+
+                  canvas.toBlob(async (blob) => {
+                    if (!blob) {
+                      clearTimeout(timeout);
+                      return resolve(proxySrc);
+                    }
+
+                    try {
+                      const file = new File([blob], 'share_ratio_square.jpg', { type: 'image/jpeg' });
+                      window.Kakao.Share.uploadImage({
+                        file: [file]
+                      }).then((res) => {
+                        clearTimeout(timeout);
+                        if (res && res.infos && res.infos.original && res.infos.original.url) {
+                          // 카카오 공식 서버 주소(http://k.kakaocdn.net/...) 발급 완료!
+                          resolve(res.infos.original.url);
+                        } else {
+                          resolve(proxySrc);
+                        }
+                      }).catch(() => {
+                        clearTimeout(timeout);
+                        resolve(proxySrc);
+                      });
+                    } catch (e2) {
+                      clearTimeout(timeout);
+                      resolve(proxySrc);
+                    }
+                  }, 'image/jpeg', 0.95);
+
+                } catch (errCanvas) {
+                  clearTimeout(timeout);
+                  resolve(proxySrc);
+                }
+              };
+
+              img.onerror = () => {
+                clearTimeout(timeout);
+                resolve(proxySrc);
+              };
+
+            } catch (errImage) {
+              clearTimeout(timeout);
+              resolve(proxySrc);
+            }
+          });
+        }
 
         window.Kakao.Share.sendDefault({
           objectType: 'feed',
           content: {
             title: '🌅 바이블그램 은혜의 말씀',
             description: card.text,
-            imageUrl: safeImageUrl,
-            imageWidth: 400,  // 성도님이 원하시는 고결한 1:1 정사각형 비율 가로 크기 사수
-            imageHeight: 400, // 성도님이 원하시는 고결한 1:1 정사각형 비율 세로 크기 사수
+            imageUrl: finalImageUrl,
+            imageWidth: 400,  // 카카오 템플릿 마스크 영역 1:1 정사각형 고정
+            imageHeight: 400, // 카카오 템플릿 마스크 영역 1:1 정사각형 고정
             link: {
               mobileWebUrl: `${window.location.origin}?cardId=${card.id}`,
               webUrl: `${window.location.origin}?cardId=${card.id}`,
