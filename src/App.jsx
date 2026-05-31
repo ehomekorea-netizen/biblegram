@@ -1058,27 +1058,12 @@ const audioRef = useRef(null);
           originImage = "https://images.unsplash.com/photo-1544764200-d834fd210a23?q=80&w=800";
         }
 
-        // 모든 이미지(Unsplash 및 AI 성화 공통)에 대해 1:1 Aspect Fill 썸네일로 단일화합니다!
-        const { data: publicUrlData } = supabase.storage
-          .from('thumbnails')
-          .getPublicUrl(`thumb_${card.id}.jpg`);
-        
-        const supabaseThumbUrl = publicUrlData?.publicUrl || '';
-        
-        // 2중 안전 장치: 예전 구버전 카드들은 Supabase 스토리지에 썸네일이 없을 수 있으므로,
-        // 그 경우에만 카카오 봇 1초 타임아웃을 100% 통과하는 글로벌 가속 CDN 리사이저(wsrv.nl)로 2중 안전 폴백!
+        // 글로벌 초고속 1:1 Aspect Fill 이미지 크롭 프록시 CDN(wsrv.nl)으로 실시간 썸네일을 다이렉트 구성합니다!
         const encodedOrigin = encodeURIComponent(originImage);
-        const fallbackResizerUrl = `https://wsrv.nl/?url=${encodedOrigin}&w=400&h=400&fit=cover`;
+        let finalImageUrl = `https://wsrv.nl/?url=${encodedOrigin}&w=400&h=400&fit=cover`;
 
-        // 카카오 개발자 센터 도메인 가드를 타며, 썸네일이 존재하는 신규 카드는 Supabase Storage thumbnails 버킷 경로로,
-        // 구버전 카드는 wsrv.nl로 자연스럽게 2중 보호하여 절대 엑스박스가 뜨지 않도록 완성합니다.
-        const isNewCard = card.created_at && (new Date(card.created_at).getTime() > new Date('2026-05-31T13:40:00Z').getTime());
-        let finalImageUrl = isNewCard ? supabaseThumbUrl : fallbackResizerUrl;
-
-        // 카카오톡 이미지 캐시 오염을 원천 우회하기 위한 고유 쿼리 추가!
-        if (finalImageUrl) {
-          finalImageUrl += `${finalImageUrl.includes('?') ? '&' : '?'}t=${Date.now()}`;
-        }
+        // 카카오톡의 강력한 이미지 캐시 오염을 완벽히 우회하기 위한 고유 쿼리 추가!
+        finalImageUrl += `&t=${Date.now()}`;
 
         // 지연 시간 0%의 순수한 카카오톡 SDK 피드 메시지 공유 즉시 격발!
         window.Kakao.Share.sendDefault({
@@ -5236,19 +5221,7 @@ const handlePublish = async () => {
           
         if (error) throw error;
 
-        // 모든 말씀 이미지에 대해 1:1 Aspect Fill 썸네일을 서버 사이드 크롭 API를 통해 백그라운드로 굽습니다!
-        if (currentResult.image) {
-          fetch('/api/create-thumbnail', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              imageUrl: currentResult.image,
-              cardId: data.id
-            })
-          }).catch(err => {
-            console.error("Background 1:1 thumbnail server-render trigger failed:", err);
-          });
-        }
+
 
         // 성도 교우들의 활발한 활동 알림 트리거 (성물 10개 단위 누적 시 자동 푸시 전송)
         fetch('/api/activity-push', {
