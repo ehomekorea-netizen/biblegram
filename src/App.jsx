@@ -996,28 +996,171 @@ const audioRef = useRef(null);
     }
   };
 
+  // 카카오 전용 '클린 말씀 공유 이미지' 합성 및 업로드 헬퍼
+  const uploadCleanShareImage = async (cardObj) => {
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        resolve(null);
+      }, 5000); // 5초 내 미완료 시 즉각 폴백
+
+      try {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.src = cardObj.image || '';
+
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 800;
+            canvas.height = 418;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              clearTimeout(timeout);
+              return resolve(null);
+            }
+
+            // 1. 배경 이미지 Ratio Crop 렌더링
+            const imgRatio = img.width / img.height;
+            const canvasRatio = canvas.width / canvas.height;
+            let drawWidth = canvas.width;
+            let drawHeight = canvas.height;
+            let offsetX = 0;
+            let offsetY = 0;
+
+            if (imgRatio > canvasRatio) {
+              drawWidth = canvas.height * imgRatio;
+              offsetX = (canvas.width - drawWidth) / 2;
+            } else {
+              drawHeight = canvas.width / imgRatio;
+              offsetY = (canvas.height - drawHeight) / 2;
+            }
+
+            ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+
+            // 2. 가독성을 위한 고급스러운 어두운 반투명 시트 오버레이
+            const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            grad.addColorStop(0, 'rgba(0, 0, 0, 0.45)');
+            grad.addColorStop(0.5, 'rgba(0, 0, 0, 0.6)');
+            grad.addColorStop(1, 'rgba(0, 0, 0, 0.8)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 3. 말씀 글귀 텍스트 렌더링 (자동 줄바꿈 적용)
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'normal bold 24px "Noto Sans KR", serif';
+            
+            const text = cardObj.text || '';
+            const maxLineWidth = 680;
+            const lineHeight = 38;
+            const words = text.split(' ');
+            let lines = [];
+            let currentLine = '';
+
+            for (let i = 0; i < words.length; i++) {
+              let testLine = currentLine + words[i] + ' ';
+              let metrics = ctx.measureText(testLine);
+              if (metrics.width > maxLineWidth && i > 0) {
+                lines.push(currentLine.trim());
+                currentLine = words[i] + ' ';
+              } else {
+                currentLine = testLine;
+              }
+            }
+            lines.push(currentLine.trim());
+
+            const totalTextHeight = lines.length * lineHeight;
+            let startY = (canvas.height - totalTextHeight) / 2 - 15;
+
+            lines.forEach((line, index) => {
+              ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+              ctx.shadowBlur = 8;
+              ctx.shadowOffsetX = 2;
+              ctx.shadowOffsetY = 2;
+              ctx.fillText(line, canvas.width / 2, startY + (index * lineHeight));
+            });
+
+            // 4. 성경 장절 렌더링
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+            ctx.fillStyle = '#DFBA73';
+            ctx.font = 'normal 500 18px "Lora", serif';
+            const infoText = `(${cardObj.book} ${cardObj.chapter}:${cardObj.verse})`;
+            ctx.fillText(infoText, canvas.width / 2, startY + totalTextHeight + 25);
+
+            // 하단 낙관 인쇄
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.font = 'normal 300 12px "Montserrat", sans-serif';
+            ctx.fillText('B I B L E G R A M', canvas.width / 2, canvas.height - 35);
+
+            // 5. Blob 변환 후 카카오 서버 업로드
+            canvas.toBlob(async (blob) => {
+              if (!blob) {
+                clearTimeout(timeout);
+                return resolve(null);
+              }
+
+              try {
+                const file = new File([blob], 'share_card.jpg', { type: 'image/jpeg' });
+                window.Kakao.Share.uploadImage({
+                  file: [file]
+                }).then((res) => {
+                  clearTimeout(timeout);
+                  if (res && res.infos && res.infos.original && res.infos.original.url) {
+                    resolve(res.infos.original.url);
+                  } else {
+                    resolve(null);
+                  }
+                }).catch(() => {
+                  clearTimeout(timeout);
+                  resolve(null);
+                });
+              } catch (e2) {
+                clearTimeout(timeout);
+                resolve(null);
+              }
+            }, 'image/jpeg', 0.9);
+
+          } catch (errC) {
+            clearTimeout(timeout);
+            resolve(null);
+          }
+        };
+
+        img.onerror = () => {
+          clearTimeout(timeout);
+          resolve(null);
+        };
+
+      } catch (e3) {
+        clearTimeout(timeout);
+        resolve(null);
+      }
+    });
+  };
+
   const handleShareClick = async (e) => {
     e.stopPropagation();
     
     // Kakao SDK 공유 우선 시도 (iOS/안드로이드 기기 격차 전면 해소)
-    let sharedViaKakao = false;
     if (window.Kakao && window.Kakao.isInitialized()) {
       try {
-        let safeImageUrl = card.image || '';
-        if (safeImageUrl.startsWith('//')) {
-          safeImageUrl = 'https:' + safeImageUrl;
-        }
+        onShowToast("영광스러운 클린 말씀 공유 이미지를 준비하고 있습니다...", "info");
         
-        // 성도님께서 카카오 대시보드에 fal.media 및 queue.fal.run 도메인 등록을 완벽 완료하셨으므로,
-        // 카카오 로봇이 차단벽 없이 100% 정상 스크랩해 갈 수 있습니다! 어떠한 주소 왜곡 없이 원본 이미지 그대로 다이렉트 전송합니다!
-        if (!safeImageUrl || !safeImageUrl.startsWith('http')) {
-          safeImageUrl = "https://images.unsplash.com/photo-1544764200-d834fd210a23?q=80&w=1080&auto=format&fit=crop";
-        } else {
-          try {
-            const urlObj = new URL(safeImageUrl);
-            safeImageUrl = urlObj.toString();
-          } catch (err2) {
-            // URL 파싱 오류 방지 안전 유지
+        // 1안) 카카오 전용 '클린 말씀 공유 이미지' 생성 로직 가동
+        const uploadedUrl = await uploadCleanShareImage(card);
+        let safeImageUrl = uploadedUrl;
+        
+        // 만약 캔버스 합성/업로드가 CORS 에러나 타임아웃으로 실패한 경우, 원본 이미지 전송으로 안전하게 폴백
+        if (!safeImageUrl) {
+          safeImageUrl = card.image || '';
+          if (safeImageUrl.startsWith('//')) {
+            safeImageUrl = 'https:' + safeImageUrl;
+          }
+          if (!safeImageUrl || !safeImageUrl.startsWith('http')) {
+            safeImageUrl = "https://images.unsplash.com/photo-1544764200-d834fd210a23?q=80&w=1080&auto=format&fit=crop";
           }
         }
 
@@ -1042,17 +1185,17 @@ const audioRef = useRef(null);
             },
           ],
         });
-        onShowToast("카카오톡으로 말씀 카드가 은혜롭게 공유되었습니다.", "success");
-        sharedViaKakao = true;
-      } catch (err) {
-        console.warn("Kakao share failed, falling back to device share:", err);
+        
+        // 공유 횟수 증가 연동
+        handleShareCountUpdate();
+        return;
+      } catch (errKakao) {
+        console.error("Kakao share failed, falling back:", errKakao);
       }
     }
 
-    if (!sharedViaKakao) {
-      // 기기 공유 UI 트리거
-      handleDeviceShare(e);
-    }
+    // 카카오 공유가 비활성화되어 있거나 실패한 경우 기기 공유 UI 트리거
+    handleDeviceShare(e);
 
     // 로그인된 사용자에 한해 1인 1회 카운팅
     if (!user) return;
