@@ -5722,14 +5722,14 @@ return (
                         AI 성화 미술 스타일 프리셋 선택
                       </label>
                       
-                      {/* 성도님이 지시하신 특별 성화카드 전용 큰글씨 버튼 위치 이동 */}
+                      {/* 성도님이 지시하신 특별 성화카드 전용 큰글씨 버튼 위치 이동 (1초 토스트 피드백 쾌속화!) */}
                       <button 
                         type="button"
                         onClick={() => {
                           const next = !isLargeFont;
                           setIsLargeFont(next);
                           localStorage.setItem('biblegram_large_font', String(next));
-                          showToast(next ? "큰글씨보기가 활성화되었습니다." : "큰글씨보기가 꺼졌습니다.", "success");
+                          showToast(next ? "큰글씨 활성화 🔍" : "큰글씨 해제 🔍", "success", 1000);
                         }}
                         className={`shrink-0 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border-2 transition-all duration-300 active:scale-95 text-[10px] font-black tracking-wider shadow-md ${
                           isLargeFont 
@@ -5774,7 +5774,7 @@ return (
                       1단계: 성서 말씀 탐색
                     </label>
                     
-                    {/* 일반 말씀카드일 때만 여기에 큰글씨 제어기 노출 (특별카드일 때는 상단 그리드 헤더에 노출!) */}
+                    {/* 일반 말씀카드일 때만 여기에 큰글씨 제어기 노출 (1초 토스트 피드백 쾌속화!) */}
                     {cardType !== 'special' && (
                       <button 
                         type="button"
@@ -5782,7 +5782,7 @@ return (
                           const next = !isLargeFont;
                           setIsLargeFont(next);
                           localStorage.setItem('biblegram_large_font', String(next));
-                          showToast(next ? "큰글씨보기가 활성화되었습니다." : "큰글씨보기가 꺼졌습니다.", "success");
+                          showToast(next ? "큰글씨 활성화 🔍" : "큰글씨 해제 🔍", "success", 1000);
                         }}
                         className={`shrink-0 flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border-2 transition-all duration-300 active:scale-95 text-[11px] font-black tracking-wider shadow-md ${
                           isLargeFont 
@@ -5795,6 +5795,7 @@ return (
                     )}
                   </div>
                   
+                  {/* 성서 풀네임 검색 강제 조항에 걸맞게 예시 텍스트도 고품격 풀네임으로 전격 단일화 */}
                   <span className={`text-stone-500/90 block mb-1.5 leading-relaxed transition-all ${isLargeFont ? 'text-[13.5px]' : 'text-[10.5px]'}`}>
                     한 구절에 온전히 깊이 집중하거나(예: <b>요한복음 3:16</b>),
                     <br />
@@ -5809,15 +5810,19 @@ return (
                         setVerseRefInput(val);
                         localStorage.setItem('biblegram_draft_ref', val);
                       }}
-                      placeholder={isLargeFont ? "예: 요한복음 3:16 또는 창세기 1:1~2" : "예: 요 3:16 또는 창 1:1~2"}
-                      className={`min-w-0 flex-1 bg-[#F4EFE6] border-b border-[#D8CFC0] rounded-t-xl px-4 focus:outline-none focus:border-[#A37B3F] font-myeongjo placeholder:text-[#C5B9AA] transition-colors ${isLargeFont ? 'text-[21px] py-3 placeholder:text-[17px]' : 'text-[17px] py-2 placeholder:text-[14px]'}`}
+                      placeholder="예: 요한복음 3:16 또는 창세기 1:1~2"
+                      className={`min-w-0 flex-1 bg-[#F4EFE6] border-b border-[#D8CFC0] rounded-t-xl px-4 focus:outline-none focus:border-[#A37B3F] font-myeongjo placeholder:text-[#C5B9AA]/80 transition-colors ${
+                        isLargeFont 
+                          ? 'text-[18px] py-3 placeholder:text-[13.5px]' 
+                          : 'text-[15px] py-2.5 placeholder:text-[11.5px]'
+                      }`}
                       onKeyDown={(e) => e.key === 'Enter' && handleSearchVerse()}
                     />
                     <button 
                       type="button"
                       onClick={handleSearchVerse} 
                       disabled={isSearching} 
-                      className={`shrink-0 bg-[#3A3025] hover:bg-[#201A14] text-[#F9F7F1] px-4 rounded-xl font-sans font-medium whitespace-nowrap transition-transform active:scale-95 disabled:opacity-50 ${isLargeFont ? 'text-[16px] py-3' : 'text-[14px] py-2'}`}
+                      className={`shrink-0 bg-[#3A3025] hover:bg-[#201A14] text-[#F9F7F1] px-4 rounded-xl font-sans font-medium whitespace-nowrap transition-transform active:scale-95 disabled:opacity-50 ${isLargeFont ? 'text-[16px] py-3' : 'text-[14px] py-2.5'}`}
                     >
                       {isSearching ? '수렴중...' : '탐색'}
                     </button>
