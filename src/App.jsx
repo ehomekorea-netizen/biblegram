@@ -5717,9 +5717,29 @@ return (
                 {/* AI 특별 성화카드 선택 시 표출되는 미술 스타일 그리드 */}
                 {cardType === 'special' && (
                   <div className="mb-5 animate-fade-in text-left">
-                    <label className={`text-[#A37B3F] font-bold tracking-wider mb-2 block transition-all ${isLargeFont ? 'text-[16px]' : 'text-[13px]'}`}>
-                      AI 성화 미술 스타일 프리셋 선택
-                    </label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className={`text-[#A37B3F] font-bold tracking-wider transition-all ${isLargeFont ? 'text-[16px]' : 'text-[13px]'}`}>
+                        AI 성화 미술 스타일 프리셋 선택
+                      </label>
+                      
+                      {/* 성도님이 지시하신 특별 성화카드 전용 큰글씨 버튼 위치 이동 */}
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const next = !isLargeFont;
+                          setIsLargeFont(next);
+                          localStorage.setItem('biblegram_large_font', String(next));
+                          showToast(next ? "큰글씨보기가 활성화되었습니다." : "큰글씨보기가 꺼졌습니다.", "success");
+                        }}
+                        className={`shrink-0 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border-2 transition-all duration-300 active:scale-95 text-[10px] font-black tracking-wider shadow-md ${
+                          isLargeFont 
+                            ? 'bg-[#3A3025] border-[#3A3025] text-[#DFBA73]' 
+                            : 'bg-[#FAF7F0] border-[#8B7D6B] text-[#5C5346] hover:bg-[#F4EFE6] hover:border-[#3A3025]'
+                        }`}
+                      >
+                        <span>🔍 큰글씨 {isLargeFont ? 'ON' : 'OFF'}</span>
+                      </button>
+                    </div>
                     <div className="grid grid-cols-2 gap-2.5">
                       {[
                         { id: 'Ghibli Art', name: '지브리 애니메이션', desc: '아날로그 감성의 밝고 맑은 화풍' },
@@ -5754,23 +5774,25 @@ return (
                       1단계: 성서 말씀 탐색
                     </label>
                     
-                    {/* 성도님의 가독성을 위한 수려하고 볼드한 둥근 사각형 큰글씨 제어 버튼 */}
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        const next = !isLargeFont;
-                        setIsLargeFont(next);
-                        localStorage.setItem('biblegram_large_font', String(next));
-                        showToast(next ? "큰글씨보기가 활성화되었습니다." : "큰글씨보기가 꺼졌습니다.", "success");
-                      }}
-                      className={`shrink-0 flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border-2 transition-all duration-300 active:scale-95 text-[11px] font-black tracking-wider shadow-md ${
-                        isLargeFont 
-                          ? 'bg-[#3A3025] border-[#3A3025] text-[#DFBA73]' 
-                          : 'bg-[#FAF7F0] border-[#8B7D6B] text-[#5C5346] hover:bg-[#F4EFE6] hover:border-[#3A3025]'
-                      }`}
-                    >
-                      <span>🔍 큰글씨 {isLargeFont ? 'ON' : 'OFF'}</span>
-                    </button>
+                    {/* 일반 말씀카드일 때만 여기에 큰글씨 제어기 노출 (특별카드일 때는 상단 그리드 헤더에 노출!) */}
+                    {cardType !== 'special' && (
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const next = !isLargeFont;
+                          setIsLargeFont(next);
+                          localStorage.setItem('biblegram_large_font', String(next));
+                          showToast(next ? "큰글씨보기가 활성화되었습니다." : "큰글씨보기가 꺼졌습니다.", "success");
+                        }}
+                        className={`shrink-0 flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border-2 transition-all duration-300 active:scale-95 text-[11px] font-black tracking-wider shadow-md ${
+                          isLargeFont 
+                            ? 'bg-[#3A3025] border-[#3A3025] text-[#DFBA73]' 
+                            : 'bg-[#FAF7F0] border-[#8B7D6B] text-[#5C5346] hover:bg-[#F4EFE6] hover:border-[#3A3025]'
+                        }`}
+                      >
+                        <span>🔍 큰글씨 {isLargeFont ? 'ON' : 'OFF'}</span>
+                      </button>
+                    )}
                   </div>
                   
                   <span className={`text-stone-500/90 block mb-1.5 leading-relaxed transition-all ${isLargeFont ? 'text-[13.5px]' : 'text-[10.5px]'}`}>
