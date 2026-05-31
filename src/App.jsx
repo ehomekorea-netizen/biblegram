@@ -1050,21 +1050,9 @@ const audioRef = useRef(null);
     // 카카오 SDK 공유 시도
     if (window.Kakao && window.Kakao.isInitialized()) {
       try {
-        let originImage = card.image || '';
-        if (originImage.startsWith('//')) {
-          originImage = 'https:' + originImage;
-        }
-        if (!originImage || !originImage.startsWith('http')) {
-          originImage = "https://images.unsplash.com/photo-1544764200-d834fd210a23?q=80&w=800";
-        }
-
-        // 자체 이미지 프록시 API를 경유하여 도메인 화이트리스트 차단을 관통하고 1:1 Aspect Fill 썸네일을 실시간 제공합니다!
-        const encodedOrigin = encodeURIComponent(originImage);
-        const proxyBaseUrl = `${window.location.origin}/api/image-proxy`;
-        let finalImageUrl = `${proxyBaseUrl}?url=${encodedOrigin}`;
-
-        // 카카오톡 이미지 캐시 오염을 원천 우회하기 위한 고유 쿼리 추가!
-        finalImageUrl += `&t=${Date.now()}`;
+        // 성도님이 승인해 주신 가장 완벽하고 기품 있는 '바이블그램 공식 다크 골드 로고'를 100% 일관된 시그니처 썸네일로 지정하여,
+        // 카카오 도메인 규제를 완벽 우회하고 브랜드 각인 미학을 200% 극대화합니다!
+        const finalImageUrl = `${window.location.origin}/share-thumbnail.png`;
 
         // 지연 시간 0%의 순수한 카카오톡 SDK 피드 메시지 공유 즉시 격발!
         window.Kakao.Share.sendDefault({
