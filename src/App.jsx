@@ -1008,18 +1008,16 @@ const audioRef = useRef(null);
           safeImageUrl = 'https:' + safeImageUrl;
         }
         
-        // fal.ai 이미지 도메인(fal.media, fal.run)은 카카오 수집 로봇의 Cloudflare 방화벽 403 차단벽을 완벽 우회하고
-        // Supabase Storage 용량을 단 1Byte도 낭비하지 않도록, 전 세계 무료 퍼블릭 CDN 프록시인 weserv.nl 로 주소를 지능적으로 래핑하여 전송합니다!
-        if (safeImageUrl.includes('fal.run') || safeImageUrl.includes('fal.media')) {
-          safeImageUrl = `https://images.weserv.nl/?url=${encodeURIComponent(safeImageUrl)}&default=https://images.unsplash.com/photo-1544764200-d834fd210a23`;
-        } else if (!safeImageUrl || !safeImageUrl.startsWith('http')) {
+        // 성도님께서 카카오 대시보드에 fal.media 및 queue.fal.run 도메인 등록을 완벽 완료하셨으므로,
+        // 카카오 로봇이 차단벽 없이 100% 정상 스크랩해 갈 수 있습니다! 어떠한 주소 왜곡 없이 원본 이미지 그대로 다이렉트 전송합니다!
+        if (!safeImageUrl || !safeImageUrl.startsWith('http')) {
           safeImageUrl = "https://images.unsplash.com/photo-1544764200-d834fd210a23?q=80&w=1080&auto=format&fit=crop";
         } else {
           try {
             const urlObj = new URL(safeImageUrl);
             safeImageUrl = urlObj.toString();
           } catch (err2) {
-            // URL 파싱 에러 방지용 안전 유지
+            // URL 파싱 오류 방지 안전 유지
           }
         }
 
