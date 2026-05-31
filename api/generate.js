@@ -442,8 +442,10 @@ export default async function handler(req, res) {
 2. 성경 구절의 핵심 묘사는 미술 스타일 바로 뒤에 묘사하기
    - [미술 스타일 키워드] 바로 뒤에 구절의 핵심 장소와 피사체(예: 바다, 푸른 초장, 강가, 하늘, 십자가 등)를 간결하게 묘사해라.
 
-3. 상단 레이아웃 가이드
-   - 성경 구절 자막 가독성을 위해 상단 60% 영역은 맑은 하늘이나 단순한 빈 공간(vast clear sky or simple empty background space)으로 묘사하고, 핵심 피사체는 하단 40% 영역(all main objects are strictly placed in the lower 40% of the frame)에 오도록 만들어라.
+3. 구도 및 레이아웃 가이드 (화면의 중단/중심부 배치)
+   - 성경 구절 자막 가독성을 위해 상단 20~30% 영역만 깔끔하고 맑은 하늘 또는 여백(vast clear sky or simple clean empty background space in the top 25%)으로 묘사해라.
+   - 핵심 피사체와 아름다운 성경적 상징들은 하단 구석이 아닌, 화면의 중앙/중단 영역(the middle and center area of the frame, strictly occupying from 30% to 80% height of the image)에 크고 예술적으로 돋보이게 배치해야 한다. 
+   - 9:16 세로 비율 특성상 그림이 화면 맨 하단의 UI 오버레이에 가려지지 않도록 메인 오브젝트를 화면의 정중앙과 중단 구역에 집중 배치하라.
 
 4. 최종 출력 규칙
    - 문장 끝에 반드시 다음 부정 규칙을 결합해라: "NO text, NO letters, clean background, sharp details."

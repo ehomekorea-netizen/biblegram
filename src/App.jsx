@@ -1058,11 +1058,12 @@ const audioRef = useRef(null);
           originImage = "https://images.unsplash.com/photo-1544764200-d834fd210a23?q=80&w=800";
         }
 
-        // 글로벌 초고속 1:1 Aspect Fill 이미지 크롭 프록시 CDN(wsrv.nl)으로 실시간 썸네일을 다이렉트 구성합니다!
+        // 자체 이미지 프록시 API를 경유하여 도메인 화이트리스트 차단을 관통하고 1:1 Aspect Fill 썸네일을 실시간 제공합니다!
         const encodedOrigin = encodeURIComponent(originImage);
-        let finalImageUrl = `https://wsrv.nl/?url=${encodedOrigin}&w=400&h=400&fit=cover`;
+        const proxyBaseUrl = `${window.location.origin}/api/image-proxy`;
+        let finalImageUrl = `${proxyBaseUrl}?url=${encodedOrigin}`;
 
-        // 카카오톡의 강력한 이미지 캐시 오염을 완벽히 우회하기 위한 고유 쿼리 추가!
+        // 카카오톡 이미지 캐시 오염을 원천 우회하기 위한 고유 쿼리 추가!
         finalImageUrl += `&t=${Date.now()}`;
 
         // 지연 시간 0%의 순수한 카카오톡 SDK 피드 메시지 공유 즉시 격발!

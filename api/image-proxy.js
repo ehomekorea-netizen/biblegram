@@ -1,119 +1,56 @@
-// Vercel Serverless Function: 카카오 봇의 쿼리 스트링 거부 정책을 무력화하는 정적 이미지 경로 위장(Clean URL) 및 1:1 크롭 썸네일 스트리밍 프록시 API
-import Jimp from 'jimp';
-
+/* global fetch, Buffer */
 export default async function handler(req, res) {
-  // Vercel로 유입된 온전한 raw URL 파싱
-  const requestUrl = req.url || '';
-  const urlPath = requestUrl.split('?')[0]; // 예: "/api/image-proxy/fal.media/files/shared/Qj5yWj8nO9sJ4x8Z9y8xZ.png"
+  // CORS 및 캐시 가속 설정 (1일 동안 카카오 서버 및 에지 브라우징 강력한 캐싱 보장)
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
+  res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=43200');
 
-  let targetUrl = '';
-
-  // 1. 정적 이미지 위장 경로(/api/image-proxy/호스트/경로) 복원
-  const matchIndex = urlPath.indexOf('/api/image-proxy/');
-  if (matchIndex !== -1) {
-    const rawTarget = urlPath.substring(matchIndex + '/api/image-proxy/'.length);
-    if (rawTarget.trim().length > 0) {
-      // 2중 프로토콜 가드 처리
-      let cleanTarget = rawTarget;
-      if (cleanTarget.startsWith('https:/') && !cleanTarget.startsWith('https://')) {
-        cleanTarget = cleanTarget.replace('https:/', 'https://');
-      } else if (cleanTarget.startsWith('http:/') && !cleanTarget.startsWith('http://')) {
-        cleanTarget = cleanTarget.replace('http:/', 'http://');
-      } else if (!cleanTarget.startsWith('http://') && !cleanTarget.startsWith('https://')) {
-        cleanTarget = 'https://' + cleanTarget;
-      }
-      targetUrl = cleanTarget;
-    }
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
 
-  // 2. 하위 호환용 쿼리(url) 가드 및 3중 디코딩 복원
-  if (!targetUrl && req.query.url) {
-    targetUrl = req.query.url;
-    try {
-      for (let i = 0; i < 3; i++) {
-        if (
-          targetUrl.includes('%3A') || 
-          targetUrl.includes('%2F') || 
-          targetUrl.includes('%3a') || 
-          targetUrl.includes('%2f') || 
-          targetUrl.includes('%25')
-        ) {
-          targetUrl = decodeURIComponent(targetUrl);
-        } else {
-          break;
-        }
-      }
-    } catch (e) {
-      console.error('Query decode error:', e);
-    }
+  const { url } = req.query;
+  if (!url) {
+    return res.status(400).send('Missing url parameter');
   }
-
-  if (!targetUrl) {
-    return res.status(400).send('Missing target image path');
-  }
-
-  // 주소 앞머리 슬래시 보정
-  if (targetUrl.startsWith('//')) {
-    targetUrl = 'https:' + targetUrl;
-  }
-
-  console.log('Clean URL resolved target URL for proxy:', targetUrl);
 
   try {
-    // 3. fal.ai 및 Unsplash의 로봇 탐지 필터를 격파하는 모바일 사파리 User-Agent 위장
-    const response = await fetch(targetUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-        'Referer': 'https://biblegram.vercel.app/',
-        'Origin': 'https://biblegram.vercel.app'
-      }
-    });
+    // 1. 전달받은 쿼리 디코딩
+    const decodedUrl = decodeURIComponent(url);
 
+    // 2. wsrv.nl을 백그라운드 프록시로 호출하여 1:1 Aspect Fill 크롭 이미지 바이너리 획득
+    // wsrv.nl은 무거운 엔진을 에지 단에서 처리해주어 최상의 반응성을 보여줍니다.
+    const resizerUrl = `https://wsrv.nl/?url=${encodeURIComponent(decodedUrl)}&w=400&h=400&fit=cover&output=jpg`;
+    
+    console.log(`ImageProxy: Fetching from wsrv.nl -> ${resizerUrl}`);
+    
+    const response = await fetch(resizerUrl);
     if (!response.ok) {
-      throw new Error(`Failed to fetch image from source: ${response.statusText} (Status: ${response.status})`);
+      console.warn(`ImageProxy: wsrv.nl failed with status ${response.status}. Falling back to original image streaming.`);
+      // 2중 안전 장치: wsrv.nl 실패 시 원래 원본 이미지의 스트림으로 자연스럽게 폴백
+      const fallbackResponse = await fetch(decodedUrl);
+      if (!fallbackResponse.ok) {
+        return res.status(fallbackResponse.status).send('Failed to fetch fallback original image');
+      }
+      const buffer = await fallbackResponse.arrayBuffer();
+      res.setHeader('Content-Type', fallbackResponse.headers.get('Content-Type') || 'image/jpeg');
+      return res.status(200).send(Buffer.from(buffer));
     }
 
-    const contentType = response.headers.get('content-type') || 'image/jpeg';
-    
-    // ArrayBuffer로 변환 후 버퍼 획득
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // ⭐️ 1:1 정사각형 정밀 크롭 처리 (Aspect Fill)
-    // Jimp 엔진으로 버퍼를 파싱하여 중앙 1:1 Aspect Fill 크롭을 수행합니다.
-    let finalBuffer = buffer;
-    let finalContentType = contentType;
-
-    try {
-      const image = await Jimp.read(buffer);
-      if (image) {
-        const width = image.bitmap.width;
-        const height = image.bitmap.height;
-        
-        // 가로, 세로 중 더 짧은 쪽의 길이를 기준으로 정사각형 영역을 추출
-        const size = Math.min(width, height);
-        const x = Math.floor((width - size) / 2);
-        const y = Math.floor((height - size) / 2);
-        
-        // 크롭 후 카카오 최적 정사각형인 400x400으로 리사이즈 및 JPEG 인코딩
-        image.crop(x, y, size, size).resize(400, 400);
-        finalBuffer = await image.getBufferAsync(Jimp.MIME_JPEG);
-        finalContentType = 'image/jpeg';
-      }
-    } catch (jimpError) {
-      console.warn("Jimp cropping failed, falling back to raw buffer:", jimpError);
-    }
-
-    // Vercel Edge/Serverless 단에서 1년간 초강력 캐싱 설정 (재요청 시 무부하 즉시 서버 서빙)
-    res.setHeader('Content-Type', finalContentType);
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    return res.status(200).send(finalBuffer);
-
+    // 3. 카카오 봇의 화이트리스트 도메인 가드를 가뿐하게 관통하도록 당당히 본진 도메인명으로 바이너리 발송!
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Content-Length', buffer.length);
+    return res.status(200).send(buffer);
   } catch (error) {
-    console.error('Image proxy error, initiating redirect safety fallback:', error);
-    
-    // 프록시 fetch가 처참히 에러 난 경우, 302 리다이렉트 처리하여 카카오톡 봇이 원본을 직접 수집하도록 유도
-    return res.redirect(302, targetUrl);
+    console.error('ImageProxy Error:', error);
+    return res.status(500).send('Internal Server Error during image proxying');
   }
 }
