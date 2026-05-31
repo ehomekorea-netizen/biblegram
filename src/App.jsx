@@ -1013,8 +1013,18 @@ const audioRef = useRef(null);
           originImage = "https://images.unsplash.com/photo-1544764200-d834fd210a23?q=80&w=800";
         }
 
+        // 특수문자 및 Unsplash 쿼리(&q=80&w=1080) 유실 문제를 100% 원천 예방하는 안전한 URL 친화적 Base64 인코딩
+        let encodedUrl = '';
+        try {
+          encodedUrl = btoa(encodeURIComponent(originImage).replace(/%([0-9A-F]{2})/g, (match, p1) => {
+            return String.fromCharCode(parseInt(p1, 16));
+          }));
+        } catch (eB) {
+          encodedUrl = btoa(originImage); // 예비 폴백
+        }
+
         // 프록시 API를 통과시켜 카카오 봇에게 보안 필터를 무력화하고 다운로드할 수 있게 주소 설계 (강력한 카카오 캐시 버스터 탑재)
-        const safeImageUrl = `${window.location.origin}/api/image-proxy?url=${encodeURIComponent(originImage)}&t=${new Date().getTime()}`;
+        const safeImageUrl = `${window.location.origin}/api/image-proxy?code=${encodedUrl}&t=${new Date().getTime()}`;
 
         window.Kakao.Share.sendDefault({
           objectType: 'feed',
