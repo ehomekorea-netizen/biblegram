@@ -996,7 +996,7 @@ const audioRef = useRef(null);
     }
   };
 
-  // 카카오 전용 '클린 말씀 공유 이미지' 합성 및 업로드 헬퍼
+  // 카카오 전용 '순수 원본 AI 성화' 카카오 서버 업로드 헬퍼
   const uploadCleanShareImage = async (cardObj) => {
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
@@ -1011,6 +1011,7 @@ const audioRef = useRef(null);
         img.onload = () => {
           try {
             const canvas = document.createElement('canvas');
+            // 카카오 권장 규격 800 x 418 황금 비율
             canvas.width = 800;
             canvas.height = 418;
             const ctx = canvas.getContext('2d');
@@ -1019,7 +1020,7 @@ const audioRef = useRef(null);
               return resolve(null);
             }
 
-            // 1. 배경 이미지 Ratio Crop 렌더링
+            // 1. 순수 원본 성화 이미지를 찌그러짐 없이 비율에 맞춰 중앙 중심 크롭 렌더링 (Aspect Fill)
             const imgRatio = img.width / img.height;
             const canvasRatio = canvas.width / canvas.height;
             let drawWidth = canvas.width;
@@ -1035,67 +1036,10 @@ const audioRef = useRef(null);
               offsetY = (canvas.height - drawHeight) / 2;
             }
 
+            // 어설픈 글씨나 투명 레이어 장식 일절 없이 오직 고화질 원본 성화만 100% 수려하게 그립니다.
             ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
 
-            // 2. 가독성을 위한 고급스러운 어두운 반투명 시트 오버레이
-            const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            grad.addColorStop(0, 'rgba(0, 0, 0, 0.45)');
-            grad.addColorStop(0.5, 'rgba(0, 0, 0, 0.6)');
-            grad.addColorStop(1, 'rgba(0, 0, 0, 0.8)');
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // 3. 말씀 글귀 텍스트 렌더링 (자동 줄바꿈 적용)
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillStyle = '#FFFFFF';
-            ctx.font = 'normal bold 24px "Noto Sans KR", serif';
-            
-            const text = cardObj.text || '';
-            const maxLineWidth = 680;
-            const lineHeight = 38;
-            const words = text.split(' ');
-            let lines = [];
-            let currentLine = '';
-
-            for (let i = 0; i < words.length; i++) {
-              let testLine = currentLine + words[i] + ' ';
-              let metrics = ctx.measureText(testLine);
-              if (metrics.width > maxLineWidth && i > 0) {
-                lines.push(currentLine.trim());
-                currentLine = words[i] + ' ';
-              } else {
-                currentLine = testLine;
-              }
-            }
-            lines.push(currentLine.trim());
-
-            const totalTextHeight = lines.length * lineHeight;
-            let startY = (canvas.height - totalTextHeight) / 2 - 15;
-
-            lines.forEach((line, index) => {
-              ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-              ctx.shadowBlur = 8;
-              ctx.shadowOffsetX = 2;
-              ctx.shadowOffsetY = 2;
-              ctx.fillText(line, canvas.width / 2, startY + (index * lineHeight));
-            });
-
-            // 4. 성경 장절 렌더링
-            ctx.shadowBlur = 0;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
-            ctx.fillStyle = '#DFBA73';
-            ctx.font = 'normal 500 18px "Lora", serif';
-            const infoText = `(${cardObj.book} ${cardObj.chapter}:${cardObj.verse})`;
-            ctx.fillText(infoText, canvas.width / 2, startY + totalTextHeight + 25);
-
-            // 하단 낙관 인쇄
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.font = 'normal 300 12px "Montserrat", sans-serif';
-            ctx.fillText('B I B L E G R A M', canvas.width / 2, canvas.height - 35);
-
-            // 5. Blob 변환 후 카카오 서버 업로드
+            // 2. Blob 변환 후 카카오 서버 업로드
             canvas.toBlob(async (blob) => {
               if (!blob) {
                 clearTimeout(timeout);
@@ -1121,7 +1065,7 @@ const audioRef = useRef(null);
                 clearTimeout(timeout);
                 resolve(null);
               }
-            }, 'image/jpeg', 0.9);
+            }, 'image/jpeg', 0.95); // 95%의 고화질 퀄리티 보장
 
           } catch (errC) {
             clearTimeout(timeout);
@@ -1147,9 +1091,9 @@ const audioRef = useRef(null);
     // Kakao SDK 공유 우선 시도 (iOS/안드로이드 기기 격차 전면 해소)
     if (window.Kakao && window.Kakao.isInitialized()) {
       try {
-        onShowToast("영광스러운 클린 말씀 공유 이미지를 준비하고 있습니다...", "info");
+        onShowToast("고화질 성화 공유 이미지를 은혜롭게 준비하고 있습니다...", "info");
         
-        // 1안) 카카오 전용 '클린 말씀 공유 이미지' 생성 로직 가동
+        // 1안) 카카오 전용 '순수 원본 고화질 AI 성화' 업로드 로직 가동
         const uploadedUrl = await uploadCleanShareImage(card);
         let safeImageUrl = uploadedUrl;
         
