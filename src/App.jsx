@@ -1050,9 +1050,29 @@ const audioRef = useRef(null);
     // 카카오 SDK 공유 시도
     if (window.Kakao && window.Kakao.isInitialized()) {
       try {
-        // 성도님이 승인해 주신 가장 완벽하고 기품 있는 '바이블그램 공식 다크 골드 로고'를 100% 일관된 시그니처 썸네일로 지정하여,
-        // 카카오 도메인 규제를 완벽 우회하고 브랜드 각인 미학을 200% 극대화합니다!
-        const finalImageUrl = `${window.location.origin}/share-thumbnail.png`;
+        let originImage = card.image || '';
+        if (originImage.startsWith('//')) {
+          originImage = 'https:' + originImage;
+        }
+        if (!originImage || !originImage.startsWith('http')) {
+          originImage = "https://images.unsplash.com/photo-1544764200-d834fd210a23?q=80&w=800";
+        }
+
+        let finalImageUrl = "";
+        
+        // 1) 특별 AI 성화 카드의 경우 (fal.media 도메인 임시 보관 및 카카오 스크랩 차단 방지)
+        // 오직 성도님이 하사하신 품격 높은 '바이블그램 공식 다크 골드 로고' 썸네일로 영구 대체하여 우아함과 무결성을 보장합니다!
+        if (originImage.includes('fal.media') || originImage.includes('fal-cdn') || originImage.includes('fal.run')) {
+          finalImageUrl = `${window.location.origin}/share-thumbnail.png`;
+        } else {
+          // 2) 일반 Unsplash 말씀카드의 경우 (기존 정책 100% 유지)
+          // Unsplash는 차단이 없으므로, 초고속 1:1 Aspect Fill 이미지 크롭 프록시(wsrv.nl)로 실시간 썸네일을 풍성하게 구성합니다!
+          const encodedOrigin = encodeURIComponent(originImage);
+          finalImageUrl = `https://wsrv.nl/?url=${encodedOrigin}&w=400&h=400&fit=cover`;
+          
+          // 카카오톡 이미지 캐시 오염을 원천 우회하기 위한 고유 쿼리 추가!
+          finalImageUrl += `&t=${Date.now()}`;
+        }
 
         // 지연 시간 0%의 순수한 카카오톡 SDK 피드 메시지 공유 즉시 격발!
         window.Kakao.Share.sendDefault({
