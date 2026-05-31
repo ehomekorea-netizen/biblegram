@@ -3003,6 +3003,11 @@ const [user, setUser] = useState(() => {
     const profileLongPressTimerRef = useRef(null);
     const isLongPressActive = useRef(false);
     const [dailyCreateCount, setDailyCreateCount] = useState(0);
+    const [cardType, setCardType] = useState('normal'); // 'normal' 또는 'special' (fal.ai AI 성화 분기용)
+    const [selectedStyle, setSelectedStyle] = useState('Classic Holy'); // AI 미술 스타일 프리셋
+    const [lastSpecialCreateDate, setLastSpecialCreateDate] = useState(() => {
+      return localStorage.getItem('biblegram_last_special_date') || '';
+    });
     const [isPushEnabled, setIsPushEnabled] = useState(() => {
       const saved = localStorage.getItem('biblegram_push_enabled');
       if (saved === null) {
@@ -4246,7 +4251,9 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
       if (error) throw error;
       
       setDailyCreateCount(0);
-      showToast("[임시] 오늘 말씀 창조 횟수가 성공적으로 초기화(0/3)되었습니다.", "success");
+      localStorage.removeItem('biblegram_last_special_date');
+      setLastSpecialCreateDate('');
+      showToast("[임시] 오늘 말씀 창조 횟수 및 특별 AI 카드 쿨타임이 강제 초기화되었습니다.", "success");
     } catch (err) {
       console.error("강제 초기화 실패:", err);
       showToast("초기화 처리 중 에러가 발생했습니다.", "error");
@@ -4932,6 +4939,15 @@ const handleSearchVerse = async () => {
       showToast("마음에 품을 말씀 구절을 기입해 주세요.", "info");
       return;
     }
+
+    // 특별 AI 카드 하루 1회 제한 검사
+    if (cardType === 'special') {
+      const todayKstStr = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
+      if (lastSpecialCreateDate === todayKstStr) {
+        showToast("🔔 특별 AI 성화카드는 하루에 딱 1번만 창조하실 수 있습니다. 내일 다시 시도해 주세요!", "error");
+        return;
+      }
+    }
     
     // 하루 3회 말씀카드 생성 및 12시간 쿨타임 제한 검증
     if (user && user.id) {
@@ -4951,22 +4967,57 @@ const handleSearchVerse = async () => {
     let visualAnalysis = { visualTheme: "light", textConcept: "GRACE" };
     let meditationVal = "주님의 깊은 은혜가 마음에 가득하길 빕니다.";
     let audioUri = "web-speech";
+    let imageUri = "";
     
     try {
-      // 1단계: 시각화 분석
-      setLoadingStep('성구의 신학적 분위기를 조율하는 중 (시각 테마 분석)...');
-      try {
-        visualAnalysis = await analyzeVerseForVisuals(verseText);
-      } catch (err) {
-        console.warn("Visual analysis failed, using fallback:", err);
-      }
-      
-      // 2단계: 묵상 분석
-      setLoadingStep('구주의 보혈 같은 지혜의 해석을 기록하는 중 (해설 융합)...');
-      try {
-        meditationVal = await generateMeditation(verseText, actualThought);
-      } catch (err) {
-        console.warn("Meditation generation failed, using fallback:", err);
+      if (cardType === 'special') {
+        // [기능 B & C] 특별 AI 성화 카드 파이프라인
+        setLoadingStep('영감을 하늘에 수놓는 중 (특별 AI 성화 및 묵상 융합)...');
+        
+        const response = await fetchWithTimeout('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            action: 'create', 
+            verseText: verseText, 
+            userThought: actualThought,
+            style_preset: selectedStyle 
+          })
+        }, 15000); // fal.ai generation might take a bit longer, so 15s timeout
+        
+        if (!response.ok) throw new Error("특별 AI 성화 생성 오류");
+        const result = await response.json();
+        
+        meditationVal = result.meditation || "주님의 깊은 은혜가 마음에 가득하길 빕니다.";
+        imageUri = result.image || generateVerseImage('light');
+        visualAnalysis = {
+          visualTheme: result.visualTheme || 'light',
+          textConcept: result.textConcept || 'GRACE'
+        };
+
+        // 특별카드 생성 성공 시점에 로컬스토리지에 날짜 기록 (비용 제어 가드)
+        if (result.image) {
+          const todayKstStr = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
+          localStorage.setItem('biblegram_last_special_date', todayKstStr);
+          setLastSpecialCreateDate(todayKstStr);
+        }
+      } else {
+        // 일반 말씀카드 파이프라인 (기존 로직 그대로 유지!)
+        setLoadingStep('성구의 신학적 분위기를 조율하는 중 (시각 테마 분석)...');
+        try {
+          visualAnalysis = await analyzeVerseForVisuals(verseText);
+        } catch (err) {
+          console.warn("Visual analysis failed, using fallback:", err);
+        }
+        
+        setLoadingStep('구주의 보혈 같은 지혜의 해석을 기록하는 중 (해설 융합)...');
+        try {
+          meditationVal = await generateMeditation(verseText, actualThought);
+        } catch (err) {
+          console.warn("Meditation generation failed, using fallback:", err);
+        }
+        
+        imageUri = generateVerseImage(visualAnalysis.visualTheme || 'light');
       }
       
       // 3단계: 성구 낭독 음성 생성
@@ -4976,9 +5027,6 @@ const handleSearchVerse = async () => {
       } catch (err) {
         console.warn("TTS audio generation failed, using fallback:", err);
       }
-      
-      // 성화 이미지 최종 지정
-      const imageUri = generateVerseImage(visualAnalysis.visualTheme || 'light');
       
       setCurrentResult({ 
         id: Date.now(), 
@@ -4992,12 +5040,11 @@ const handleSearchVerse = async () => {
       
       await chargeOpportunity();
       setView('result');
-      showToast("성구의 신학적 분위기가 반영된 묵상 카드가 융합되었습니다.", "success");
+      showToast(cardType === 'special' ? "AI 특별 성화말씀카드가 수려하게 창조되었습니다." : "성구의 신학적 분위기가 반영된 묵상 카드가 융합되었습니다.", "success");
     } catch (error) {
       console.error("생성 치명적 중단 에러:", error);
       showToast('성전 카드 생성 중 지연이 발생하여 기본 테마로 안전하게 우회합니다.', 'info');
       
-      // 모든 것이 통째로 깨져도 가장 안전한 기본값으로 강제 복구하여 진입
       const fallbackImage = generateVerseImage('light');
       setCurrentResult({
         id: Date.now(),
@@ -5497,6 +5544,75 @@ return (
                   </h1>
                 </div>
                 
+                {/* 일반카드 vs AI 특별 성화카드 탭 전환기 */}
+                <div className="flex bg-[#F4EFE6] p-1 rounded-2xl border border-[#D8CFC0] mb-5">
+                  <button 
+                    type="button"
+                    onClick={() => setCardType('normal')}
+                    className={`flex-1 py-2.5 rounded-xl font-sans font-extrabold tracking-wide text-xs transition-all active:scale-[0.98] ${cardType === 'normal' ? 'bg-[#3A3025] text-[#DFBA73] shadow-sm' : 'text-stone-500'}`}
+                  >
+                    🌿 일반 말씀카드
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setCardType('special')}
+                    className={`flex-1 py-2.5 rounded-xl font-sans font-extrabold tracking-wide text-xs transition-all active:scale-[0.98] ${cardType === 'special' ? 'bg-[#3A3025] text-[#DFBA73] shadow-sm' : 'text-stone-500'}`}
+                  >
+                    ✨ 특별 AI 성화카드
+                  </button>
+                </div>
+
+                {/* AI 특별 성화카드 선택 시 표출되는 미술 스타일 그리드 */}
+                {cardType === 'special' && (
+                  <div className="mb-5 animate-fade-in text-left">
+                    {/* 특별카드 자정 기준 하루 1회 비용 관리 쿨타임 가드 알림 */}
+                    {(() => {
+                      const todayKstStr = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
+                      const isUsedToday = lastSpecialCreateDate === todayKstStr;
+                      if (isUsedToday) {
+                        return (
+                          <div className="mb-4 bg-red-500/10 border border-red-500/25 p-3 rounded-2xl flex items-center justify-center gap-2 text-center text-red-500 font-sans font-extrabold text-[12px] tracking-wide animate-pulse">
+                            <span>🔒 특별 AI 성화카드는 오늘 이미 창조하셨습니다 (내일 다시 생성 가능)</span>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="mb-4 bg-[#DFBA73]/10 border border-[#DFBA73]/25 p-3 rounded-2xl flex items-center justify-center gap-2 text-center text-[#7C5A26] font-sans font-extrabold text-[12px] tracking-wide">
+                          <span>✨ 특별 카드는 하루에 딱 1번만 창조하실 수 있는 은혜의 기회입니다!</span>
+                        </div>
+                      );
+                    })()}
+
+                    <label className={`text-[#A37B3F] font-bold tracking-wider mb-2 block transition-all ${isLargeFont ? 'text-[16px]' : 'text-[13px]'}`}>
+                      AI 성화 미술 스타일 프리셋 선택
+                    </label>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {[
+                        { id: 'Classic Holy', name: 'Classic Holy', desc: '렘브란트/밀레풍의 유화 성화' },
+                        { id: 'Modern Minimal', name: 'Modern Minimal', desc: '차분하고 맑은 일러스트' },
+                        { id: 'Cinematic Moody', name: 'Cinematic Moody', desc: '웅장한 경관과 명암 대비' },
+                        { id: 'Abstract Spiritual', name: 'Abstract Spiritual', desc: '몽환적인 추상화와 은하수' }
+                      ].map(preset => (
+                        <button
+                          type="button"
+                          key={preset.id}
+                          onClick={() => setSelectedStyle(preset.id)}
+                          className={`p-3.5 rounded-2xl border flex flex-col text-left transition-all duration-300 active:scale-95 ${
+                            selectedStyle === preset.id
+                              ? 'bg-[#3A3025] border-[#3A3025] text-[#DFBA73] shadow-md'
+                              : 'bg-white border-[#D8CFC0] text-stone-700 hover:bg-[#F4EFE6]/50 shadow-sm'
+                          }`}
+                        >
+                          <span className="text-[12.5px] font-black">{preset.name}</span>
+                          <span className={`text-[10px] leading-tight mt-0.5 ${selectedStyle === preset.id ? 'text-stone-300' : 'text-stone-400'}`}>
+                            {preset.desc}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
                 <div className="mb-3.5 text-left">
                   {/* 1단계 헤더와 리디자인된 큰글씨 제어기 가로 정밀 정렬 */}
                   <div className="flex items-center justify-between mb-1.5">
@@ -5602,20 +5718,41 @@ return (
 
                 <button 
                   onClick={handleCreate}
-                  disabled={!verseText.trim()}
+                  disabled={
+                    !verseText.trim() || 
+                    (cardType === 'special' && lastSpecialCreateDate === new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0])
+                  }
                   className={`w-full rounded-xl bg-[#1e1510] hover:bg-[#3A3025] text-[#DFBA73] font-bold tracking-widest disabled:opacity-30 shadow-lg active:scale-[0.98] transition-all uppercase ${isLargeFont ? 'text-[18px] py-4.5 mt-2' : 'text-[15px] py-3.5 mt-1'}`}
                 >
-                  성화 말씀 카드 창조하기
+                  {cardType === 'special' 
+                    ? (lastSpecialCreateDate === new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0]
+                        ? "🔒 오늘 특별 AI 성화 창조 완료" 
+                        : "✨ 특별 AI 성화말씀카드 창조") 
+                    : "일반 성화 말씀 카드 창조하기"}
                 </button>
 
                 {/* 오늘 창조 가능 : x회 남음 배지 (제출 버튼 바로 아래에 정렬하여 가시성 대격상) */}
                 {user && user.id && (
                   <div className="mt-4 flex justify-center w-full">
-                    <span className={`inline-flex items-center gap-1.5 bg-[#F6EFE2] border border-[#DFBA73]/45 px-5 py-2 rounded-full shadow-[0_3px_12px_rgba(223,186,115,0.15)] font-sans font-black tracking-wide text-[#7C5A26] transition-all animate-pulse duration-[2000ms] text-center justify-center w-[90%] sm:w-auto ${isLargeFont ? 'text-[14px]' : 'text-[12.5px]'}`}>
-                      {dailyCreateCount >= 3 
-                        ? "🔔 오늘 창조 한도 초과 (내일 생성 가능)" 
-                        : `✨ 오늘 창조 가능 : ${3 - dailyCreateCount}회 남음`}
-                    </span>
+                    {cardType === 'special' ? (
+                      (() => {
+                        const todayKstStr = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
+                        const isUsedToday = lastSpecialCreateDate === todayKstStr;
+                        return (
+                          <span className={`inline-flex items-center gap-1.5 bg-[#F6EFE2] border border-[#DFBA73]/45 px-5 py-2 rounded-full shadow-[0_3px_12px_rgba(223,186,115,0.15)] font-sans font-black tracking-wide text-[#7C5A26] transition-all animate-pulse duration-[2000ms] text-center justify-center w-[90%] sm:w-auto ${isLargeFont ? 'text-[14px]' : 'text-[12.5px]'}`}>
+                            {isUsedToday 
+                              ? "🔔 오늘 특별 성화 창조 한도 초과 (내일 생성 가능)" 
+                              : "✨ 오늘 특별 성화 창조 가능 : 1회 남음"}
+                          </span>
+                        );
+                      })()
+                    ) : (
+                      <span className={`inline-flex items-center gap-1.5 bg-[#F6EFE2] border border-[#DFBA73]/45 px-5 py-2 rounded-full shadow-[0_3px_12px_rgba(223,186,115,0.15)] font-sans font-black tracking-wide text-[#7C5A26] transition-all animate-pulse duration-[2000ms] text-center justify-center w-[90%] sm:w-auto ${isLargeFont ? 'text-[14px]' : 'text-[12.5px]'}`}>
+                        {dailyCreateCount >= 3 
+                          ? "🔔 오늘 창조 한도 초과 (내일 생성 가능)" 
+                          : `✨ 오늘 창조 가능 : ${3 - dailyCreateCount}회 남음`}
+                      </span>
+                    )}
                   </div>
                 )}
 

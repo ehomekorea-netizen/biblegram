@@ -252,7 +252,7 @@ export default async function handler(req, res) {
     unsplashApiKey = unsplashApiKey.trim().replace(/[\r\n]/g, '');
   }
 
-  const { action, reference, verseText, userThought } = req.body;
+  const { action, reference, verseText, userThought, style_preset } = req.body;
 
   try {
     // 0. 웹 푸시 처리
@@ -413,7 +413,42 @@ export default async function handler(req, res) {
       if (!verseText) {
         return res.status(400).json({ error: 'Verse text is required for create action' });
       }
-      prompt = `다음 성경 구절과 사용자의 고백을 바탕으로 깊이 있고 은혜로운 묵상 해설과 신학적 분위기를 정밀 분석해 주세요.
+
+      if (style_preset) {
+        // [기능 A] 특별 AI 성화 전용 GPT-4o mini 프롬프트 인젝터
+        prompt = `다음 성경 구절과 사용자의 미술 스타일 프리셋을 바탕으로 깊이 있는 묵상과 함께, fal.ai FLUX.1 [schnell] 모델을 위한 정밀한 영문 이미지 생성용 프롬프트를 작성해 주세요.
+
+성경 구절: ${verseText}
+선택한 미술 스타일 프리셋: ${style_preset}
+사용자 고백: ${userThought || "없음"}
+
+당신은 영적으로 무척 지혜롭고 자애로운 기독교 묵상 도우미입니다. 경어체를 쓰며, 주님의 온유하고 평화로운 품을 연상시키는 정중하고 부드러운 어조로 위로와 지혜를 안겨주세요.
+
+[★ 묵상(meditation) 작성 지침 ★]
+1. 분량 준수: 절대로 극도로 짧거나 간결하게 요약하지 마십시오. 성도님이 아침과 저녁으로 충분히 깊은 영적 묵상을 즐기실 수 있도록, 묵상 해설 본문을 반드시 최소 3문장 이상 4문장 이하의 충실하고 풍성한 깊이로 서술해 주십시오.
+2. 기도문 병합: 해설 본문 서술을 모두 마친 뒤에는, 반드시 행바꿈(\\n\\n)을 두 번 넣은 뒤, 성경 구절 및 고백에 연계된 정성스럽고 은혜로운 '오늘의 기도: [기도 내용]' 형태의 1줄 온전한 기도문을 추가하십시오.
+3. 기계적이고 조급한 요약 생성을 강력히 금지합니다. 성도님의 마음에 따스한 위안과 은혜의 교제가 꽉 들어차도록 해설을 성실하게 구성해 주세요.
+
+[★ AI 이미지 프롬프트(imagePrompt) 작성 지침 ★]
+1. 미술 스타일 반영: 선택된 스타일에 맞춰 성경의 영적 의미와 경외감이 고스란히 묻어나는 환상적이고 수려한 영문 이미지 프롬프트를 작성하십시오.
+   - Classic Holy: Rembrandt/Millet style, heavy oil painting, warm and sacred illumination, golden lighting.
+   - Modern Minimal: Pastel tone illustration, modern, flat design, clean vector-style minimal look, soft colors.
+   - Cinematic Moody: Epic landscape scene, dramatic chiaroscuro lighting, deep shadows, cinematic composition, breathtaking scale.
+   - Abstract Spiritual: Mystical galaxy, stardust, abstract shapes of light and shadow, spiritual aurora, ethereal dreamlike texture.
+2. 필수 레이아웃 확보 규칙 강제 삽입:
+   - 텍스트 자막이 들어갈 자리를 확보하기 위해 영문 프롬프트 중간과 끝에 반드시 다음 문장을 단 한 단어도 빠짐없이 삽입하십시오:
+     "Upper half and center of the image has empty misty sky for text overlay. In the far lower third of the frame, place the main object tiny as a silhouette. NO text, NO letters, clean background."
+
+[JSON 반환 형식]
+{
+  "meditation": "풍성하고 은혜로운 묵상 해설(최소 3~4문장)과 그 뒤에 줄바꿈(\\n\\n) 후 이어진 오늘의 기도문",
+  "imagePrompt": "위의 지침을 100% 반영하여 영어로 작성된 fal.ai FLUX.1 이미지 생성용 영문 프롬프트",
+  "textConcept": "구절의 신학적 메시지를 요약한 영단어 1개 (예: GRACE, FAITH, HOPE, LOVE, PEACE, GLORY, COMFORT, SALVATION)",
+  "visualTheme": "구절의 영적/신학적 분위기에 어울리는 테마 단어 하나 (반드시 다음 중 하나여야 함: 'cross', 'light', 'nature', 'water', 'night', 'mountain', 'love', 'snow')"
+}`;
+      } else {
+        // 일반 말씀카드용 프롬프트
+        prompt = `다음 성경 구절과 사용자의 고백을 바탕으로 깊이 있고 은혜로운 묵상 해설과 신학적 분위기를 정밀 분석해 주세요.
 성경 구절: ${verseText}
 사용자 고백: ${userThought || "없음"}
 
@@ -431,6 +466,7 @@ export default async function handler(req, res) {
   "visualTheme": "구절의 영적/신학적 분위기에 어울리는 테마 단어 하나 (반드시 다음 중 하나여야 함: 'cross', 'light', 'nature', 'water', 'night', 'mountain', 'love', 'snow')",
   "visualKeywords": "Unsplash에서 고품질 배경 사진 검색에 사용할 영어 쉼표로 구분된 키워드 2~3개 (예: 'calm christian light, soft cross' 또는 'peaceful sunrise, holy prayer')"
 }`;
+      }
     } else if (action === 'meditate') {
       if (!verseText) {
         return res.status(400).json({ error: 'Verse text is required for meditate action' });
@@ -490,6 +526,50 @@ export default async function handler(req, res) {
         // If it's a create action, fetch dynamic image
         if (action === 'create') {
           let imageUrl = '';
+          
+          // [기능 B] fal.ai Flux.1 Schnell 이미지 생성 연동
+          if (style_preset) {
+            const falKey = process.env.FAL_KEY || process.env.FAL_API_KEY || process.env.VITE_FAL_KEY || '';
+            if (falKey) {
+              try {
+                const finalPrompt = parsed.imagePrompt || `Holy christian light representing ${parsed.textConcept || 'faith'}`;
+                console.log(`Calling fal.ai flux/schnell with prompt: ${finalPrompt}`);
+                
+                const falResponse = await fetch('https://fal.run/fal-ai/flux/schnell', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Key ${falKey.trim()}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    prompt: finalPrompt,
+                    image_size: {
+                      width: 576,
+                      height: 1024
+                    },
+                    num_inference_steps: 4,
+                    enable_safety_checker: true,
+                    sync_mode: true
+                  })
+                });
+                
+                if (falResponse.ok) {
+                  const falData = await falResponse.json();
+                  if (falData && falData.images && falData.images[0] && falData.images[0].url) {
+                    imageUrl = falData.images[0].url;
+                    console.log(`Successfully generated special image from fal.ai: ${imageUrl}`);
+                  }
+                } else {
+                  console.error(`fal.ai responded with status: ${falResponse.status} - ${await falResponse.text()}`);
+                }
+              } catch (err) {
+                console.error("fal.ai API call failed:", err);
+              }
+            } else {
+              console.warn("fal.ai API key is missing. Falling back to local curated images.");
+            }
+          }
+
           if (false && unsplashApiKey) {
             try {
               const query = parsed.visualKeywords || parsed.visualTheme || 'bible';
