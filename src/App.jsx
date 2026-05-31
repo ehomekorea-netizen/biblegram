@@ -1067,95 +1067,10 @@ const audioRef = useRef(null);
           finalImageUrl = originImage;
         } else {
           // 2. fal.ai 등 외부 고화질 성화인 경우:
-          // 성도님의 지침대로 성화 썸네일을 1:1 정사각형으로 깨끗하게 캡처하여 카카오 CDN 서버로 업로드 후 발급받은 정적 주소를 사용합니다.
-          onShowToast("성화 썸네일을 1:1 비율로 캡처하여 카카오톡 서버로 업로드하고 있습니다...", "info");
-
-          // 특수문자 및 쿼리 유실 방지를 위한 이중 URL 인코딩 프록시 주소 생성
-          const doubleEncoded = encodeURIComponent(encodeURIComponent(originImage));
-          const proxySrc = `${window.location.origin}/api/image-proxy?url=${doubleEncoded}&t=${new Date().getTime()}`;
-
-          finalImageUrl = await new Promise((resolve) => {
-            const timeout = setTimeout(() => {
-              // 6초 타임아웃 시 안전한 폴백용 프록시 다이렉트 주소 반환
-              resolve(proxySrc);
-            }, 6000);
-
-            try {
-              const img = new Image();
-              img.crossOrigin = "anonymous"; // 프록시 백엔드가 CORS 헤더를 달아주므로 100% 통과!
-              img.src = proxySrc;
-
-              img.onload = () => {
-                try {
-                  const canvas = document.createElement('canvas');
-                  canvas.width = 400;
-                  canvas.height = 400;
-                  const ctx = canvas.getContext('2d');
-                  if (!ctx) {
-                    clearTimeout(timeout);
-                    return resolve(proxySrc);
-                  }
-
-                  // 1:1 정사각형 중앙 Aspect Fill 크롭
-                  const imgRatio = img.width / img.height;
-                  let drawWidth = canvas.width;
-                  let drawHeight = canvas.height;
-                  let offsetX = 0;
-                  let offsetY = 0;
-
-                  if (imgRatio > 1) {
-                    drawWidth = canvas.height * imgRatio;
-                    offsetX = (canvas.width - drawWidth) / 2;
-                  } else {
-                    drawHeight = canvas.width / imgRatio;
-                    offsetY = (canvas.height - drawHeight) / 2;
-                  }
-
-                  ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-
-                  canvas.toBlob((blob) => {
-                    if (!blob) {
-                      clearTimeout(timeout);
-                      return resolve(proxySrc);
-                    }
-
-                    try {
-                      const file = new File([blob], 'thumb_square.jpg', { type: 'image/jpeg' });
-                      window.Kakao.Share.uploadImage({
-                        file: [file]
-                      }).then((res) => {
-                        clearTimeout(timeout);
-                        if (res && res.infos && res.infos.original && res.infos.original.url) {
-                          resolve(res.infos.original.url);
-                        } else {
-                          resolve(proxySrc);
-                        }
-                      }).catch(() => {
-                        clearTimeout(timeout);
-                        resolve(proxySrc);
-                      });
-                    } catch (e2) {
-                      clearTimeout(timeout);
-                      resolve(proxySrc);
-                    }
-                  }, 'image/jpeg', 0.90);
-
-                } catch (errCanvas) {
-                  clearTimeout(timeout);
-                  resolve(proxySrc);
-                }
-              };
-
-              img.onerror = () => {
-                clearTimeout(timeout);
-                resolve(proxySrc);
-              };
-
-            } catch (errImage) {
-              clearTimeout(timeout);
-              resolve(proxySrc);
-            }
-          });
+          // 카카오 봇의 쿼리 스트링 거부 정책을 무력화하고, 서버 단(Vercel Node.js)에서 Jimp를 통해 1:1 Aspect Fill
+          // 크롭을 실시간 처리하도록 설계된 Clean URL 위장 이미지 프록시 주소를 동기식으로 즉각 매핑합니다! (딜레이 0초!)
+          const cleanPath = originImage.replace(/^https?:\/\//i, '');
+          finalImageUrl = `${window.location.origin}/api/image-proxy/${cleanPath}`;
         }
 
         // 지연 시간 0%의 순수한 카카오톡 SDK 피드 메시지 공유 즉시 격발!

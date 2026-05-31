@@ -1,4 +1,6 @@
-// Vercel Serverless Function: 카카오 봇의 쿼리 스트링 거부 정책을 무력화하는 정적 이미지 경로 위장(Clean URL) 스트리밍 프록시 API
+// Vercel Serverless Function: 카카오 봇의 쿼리 스트링 거부 정책을 무력화하는 정적 이미지 경로 위장(Clean URL) 및 1:1 크롭 썸네일 스트리밍 프록시 API
+import Jimp from 'jimp';
+
 export default async function handler(req, res) {
   // Vercel로 유입된 온전한 raw URL 파싱
   const requestUrl = req.url || '';
@@ -74,20 +76,44 @@ export default async function handler(req, res) {
 
     const contentType = response.headers.get('content-type') || 'image/jpeg';
     
-    // ArrayBuffer로 변환 후 전송
+    // ArrayBuffer로 변환 후 버퍼 획득
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Vercel Edge/Serverless 단에서 1년간 초강력 캐싱 설정 (재요청 시 무부하 즉시 서빙)
-    res.setHeader('Content-Type', contentType);
+    // ⭐️ 1:1 정사각형 정밀 크롭 처리 (Aspect Fill)
+    // Jimp 엔진으로 버퍼를 파싱하여 중앙 1:1 Aspect Fill 크롭을 수행합니다.
+    let finalBuffer = buffer;
+    let finalContentType = contentType;
+
+    try {
+      const image = await Jimp.read(buffer);
+      if (image) {
+        const width = image.bitmap.width;
+        const height = image.bitmap.height;
+        
+        // 가로, 세로 중 더 짧은 쪽의 길이를 기준으로 정사각형 영역을 추출
+        const size = Math.min(width, height);
+        const x = Math.floor((width - size) / 2);
+        const y = Math.floor((height - size) / 2);
+        
+        // 크롭 후 카카오 최적 정사각형인 400x400으로 리사이즈 및 JPEG 인코딩
+        image.crop(x, y, size, size).resize(400, 400);
+        finalBuffer = await image.getBufferAsync(Jimp.MIME_JPEG);
+        finalContentType = 'image/jpeg';
+      }
+    } catch (jimpError) {
+      console.warn("Jimp cropping failed, falling back to raw buffer:", jimpError);
+    }
+
+    // Vercel Edge/Serverless 단에서 1년간 초강력 캐싱 설정 (재요청 시 무부하 즉시 서버 서빙)
+    res.setHeader('Content-Type', finalContentType);
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    return res.status(200).send(buffer);
+    return res.status(200).send(finalBuffer);
 
   } catch (error) {
     console.error('Image proxy error, initiating redirect safety fallback:', error);
     
-    // 4. 프록시 fetch가 처참히 에러 난 경우, 절대 깨진 십자가를 뱉지 않고 
-    // 원래의 원본 이미지 주소(targetUrl)로 302 리다이렉트 처리하여 카카오톡 봇이 원본을 직접 수집하도록 유도
+    // 프록시 fetch가 처참히 에러 난 경우, 302 리다이렉트 처리하여 카카오톡 봇이 원본을 직접 수집하도록 유도
     return res.redirect(302, targetUrl);
   }
 }
