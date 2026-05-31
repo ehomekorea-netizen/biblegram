@@ -429,17 +429,29 @@ export default async function handler(req, res) {
 2. 기도문 병합: 해설 본문 서술을 모두 마친 뒤에는, 반드시 행바꿈(\\n\\n)을 두 번 넣은 뒤, 성경 구절 및 고백에 연계된 정성스럽고 은혜로운 '오늘의 기도: [기도 내용]' 형태의 1줄 온전한 기도문을 추가하십시오.
 3. 기계적이고 조급한 요약 생성을 강력히 금지합니다. 성도님의 마음에 따스한 위안과 은혜의 교제가 꽉 들어차도록 해설을 성실하게 구성해 주세요.
 
-[★ AI 이미지 프롬프트(imagePrompt) 작성 지침 ★]
-1. 미술 스타일 반영: 선택된 스타일에 맞춰 성경의 영적 의미와 경외감이 고스란히 묻어나는 환상적이고 수려한 영문 이미지 프롬프트를 작성하십시오.
-   - Ghibli Art: Studio Ghibli style, hand-drawn animation, anime key art, nostalgic, vibrant but soft pastel colors, watercolor textures, clear blue sky with fluffy white clouds, beautiful cinematic light.
-   - Felt Papercut: Minimalist felt illustration, papercut art style, simple geometric shapes, clean vector lines, flat colors, modern pastel palette, organic textures, cozy and comforting storybook design.
-   - Neon Cyberpunk: Cyberpunk spiritual art, bioluminescent neon glow, deep violet and cyan light accents, futuristic divine energy, hyper-detailed cosmic atmosphere, glowing particles, dark dramatic high-contrast background.
-   - Dark Renaissance: Dark Renaissance style, majestic white marble sculpture, dramatic Chiaroscuro lighting, deep shadows, classical fine art photography, hyper-realistic stone texture, dark muted atmospheric background.
-2. 밝고 화사한 조명 조건 강제 지침:
-   - 텍스트 자막이 뚜렷하게 식별되도록 전체적으로 밝고(bright), 화사하며(vibrant), 맑고 빛나는(luminous, warm sacred lighting) 배경을 구성해야 합니다. 극단적으로 어두운 밤, 칙칙한 회색/검은색, 어둡고 침침한 톤은 절대로 생성하지 말고 찬란한 빛이나 따뜻한 하늘, 은혜롭고 영광스러운 온기를 가미하여 가시성을 보장하십시오.
-3. 필수 레이아웃 확보 규칙 강제 삽입:
-   - 텍스트 자막이 들어갈 자리를 확보하기 위해 영문 프롬프트 중간과 끝에 반드시 다음 문장을 단 한 단어도 빠짐없이 삽입하십시오:
-     "Upper half and center of the image has empty misty sky for text overlay. In the far lower third of the frame, place the main object tiny as a silhouette. NO text, NO letters, clean background."
+[★ AI 이미지 프롬프트(imagePrompt) 작성 지침 v2.0 ★]
+너는 기독교 묵상 앱 '바이블그램 2.0'의 이미지 생성 프롬프트 빌더야. 
+유저가 입력한 [성경 구절]의 의미와 선택한 [미술 스타일 프리셋]을 융합하여, fal.ai의 FLUX.1 [schnell] 모델이 완벽하게 이해할 수 있는 하나의 영문 프롬프트를 작성해라.
+
+1. 성경 구절의 핵심 물리적 공간 고정 (가장 중요)
+   - 제공된 [성경 구절]에 등장하는 핵심 장소와 물리적 대상(예: 바다, 광야, 푸른 초장, 강가, 하늘, 십자가 등)을 프롬프트의 '첫 문장'에 가장 거대하고 명확하게 묘사해라. 
+   - 절대 엉뚱한 산이나 평지가 나오지 않도록 구절의 배경 공간을 최우선으로 선언해야 한다.
+
+2. 극단적 미술 스타일 프리셋 주입
+   - Ghibli Art: Studio Ghibli style anime, hand-drawn digital watercolor texture, clear sunny blue sky, lush soft pastel colors, nostalgic cinematic masterwork.
+   - Felt Papercut: Minimalist papercut art, simple geometric layers of colored felt, flat warm colors, cozy pastel palette, clean vector design.
+   - Neon Cyberpunk: Cyberpunk spiritual artwork, bioluminescent vibrant neon glow, deep violet and electric cyan light beams, futuristic divine aura, high-contrast dark background with glowing particles.
+   - Dark Renaissance: Dark Renaissance style, a white marble classical sculpture, dramatic chiaroscuro studio lighting, intense deep shadows contrast with divine highlights, hyper-realistic stone texture.
+
+3. 상단 자막 레이아웃 강제 규칙 (공간 분리법)
+   - 프롬프트에 구질구질하게 '안개(Misty)'를 요구하지 마라. 대신 구도적으로 상단을 비워라.
+   - 모든 핵심 피사체와 성경적 상징물은 화면의 하단 40% 구역에만 존재해야 한다: "All main subjects and holy figures are strictly positioned in the lower 40% of the frame as a beautiful focal point."
+   - 화면의 상단 60% 구역은 자막 가독성을 위해 넓고 단순한 배경(예: 맑은 하늘, 단색 벽, 거대한 여백)으로만 채워야 한다: "The upper 60% of the image is a vast, clear, and simple background (like clear sky or flat space) serving as negative space for typography."
+   - 밤이나 네온 스타일을 제외하고는, 전체적으로 밝고 화사한 빛(radiant luminous sacred light)이 하단 오브젝트를 비추도록 묘사해라.
+
+4. 최종 출력 규칙
+   - 문장 끝에 반드시 다음 금지어를 결합해라: "NO text, NO letters, clean background, sharp details."
+   - 설명이나 서론 없이 오직 영문 프롬프트 한 문장만 출력해라.
 
 [JSON 반환 형식]
 {

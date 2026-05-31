@@ -1333,6 +1333,11 @@ const handleAudioEnded = () => {
     const useWebSpeech = !card.audio || card.audio === 'web-speech' || isLocalBlobFromDifferentSession;
     
     if (!useWebSpeech && audioRef.current) {
+      try {
+        audioRef.current.currentTime = 0; // 재생을 지시하기 직전에 강제로 0초 시점으로 헤드를 고정!
+      } catch (e) {
+        console.warn("Failed to reset audio currentTime before playing:", e);
+      }
       audioRef.current.play()
         .then(() => setIsPlaying(true))
         .catch((err) => {
@@ -1668,12 +1673,25 @@ const handleAudioEnded = () => {
         </div>
       ))}
 
-      <div 
-        className="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-out" 
-        style={{ backgroundImage: `url(${card.image})`, opacity: 0.52 }} 
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-black/85" />
-      <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/60 pointer-events-none" />
+      {(() => {
+        const isSpecialArt = card.image && (
+          card.image.includes('fal.run') || 
+          card.image.includes('fal.media') || 
+          card.image.includes('fal-ai')
+        );
+        const imgOpacity = isSpecialArt ? 0.85 : 0.68;
+        return (
+          <>
+            <div 
+              className="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-out" 
+              style={{ backgroundImage: `url(${card.image})`, opacity: imgOpacity }} 
+            />
+            {/* 텍스트 가독성을 보장하되 성화 이미지의 화사한 광원감을 살리기 위해 그라데이션 필터 강도를 최적 감도로 완화 */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/65" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/40 pointer-events-none" />
+          </>
+        );
+      })()}
 
       {/* 중앙 텍스트 영역 (2단계 성경 말씀) */}
       <div 
@@ -3125,13 +3143,21 @@ const [user, setUser] = useState(() => {
         setIsProfileRefreshing(true);
         setProfilePullDistance(35);
         try {
-          // 토스트 메시지나 배너 없이 은밀하게 Supabase 실시간 동기화
-          await Promise.all([
-            fetchMyCreatedCards(),
-            fetchBookmarks(),
-            fetchUserProfiles(),
-            fetchFeed()
-          ]);
+          const isOwnProfile = activeProfileUser === nickname || activeProfileUser === "은혜나눔인";
+          if (isOwnProfile) {
+            await Promise.all([
+              fetchMyCreatedCards(),
+              fetchBookmarks(),
+              fetchUserProfiles(),
+              fetchFeed()
+            ]);
+          } else {
+            await Promise.all([
+              fetchOtherUserData(activeProfileUser),
+              fetchUserProfiles(),
+              fetchFeed()
+            ]);
+          }
         } catch (err) {
           console.error("Refresh profile failed:", err);
         } finally {
@@ -3188,6 +3214,8 @@ const [user, setUser] = useState(() => {
 
     const [otherUserSavedCards, setOtherUserSavedCards] = useState([]);
     const [isFetchingOtherSaved, setIsFetchingOtherSaved] = useState(false);
+    const [otherUserCreatedCards, setOtherUserCreatedCards] = useState([]);
+    const [isFetchingOtherCreated, setIsFetchingOtherCreated] = useState(false);
 const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('biblegram_draft_ref') || '');
   const [verseText, setVerseText] = useState(() => localStorage.getItem('biblegram_draft_text') || '');
   
@@ -3753,6 +3781,41 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
     }
   }, []);
 
+  const safeScrollToCard = (cardId, type) => {
+    let attempts = 0;
+    const maxAttempts = 20; // 2초 동안 100ms 단위로 요소를 Polling 검지
+    
+    const tryScroll = () => {
+      const cardEl = document.getElementById(`card-${cardId}`);
+      const containerEl = document.getElementById('feed-cards-container');
+      
+      if (cardEl && containerEl) {
+        console.log(`Target card DOM detected on attempt ${attempts}. Performing custom snap-bypass scroll.`);
+        // CSS snap이 걸려 있는 수직 스냅형 리스트 뷰에서 scrollIntoView 상쇄 튕김을 전면 방지하기 위해 
+        // snap을 일시적으로 꺼주고 스크롤 위치 이동 후, 브라우저 스크롤 이벤트가 고정되면 snap을 즉각 재가동함
+        const originalSnap = containerEl.style.scrollSnapType;
+        containerEl.style.scrollSnapType = 'none';
+        
+        cardEl.scrollIntoView({ behavior: 'auto', block: 'start' });
+        
+        setTimeout(() => {
+          containerEl.style.scrollSnapType = originalSnap;
+        }, 120);
+
+        if (type === 'comment' || type === 'reply') {
+          setOpenCommentsForCardId(String(cardId));
+        }
+      } else if (attempts < maxAttempts) {
+        attempts++;
+        setTimeout(tryScroll, 100);
+      } else {
+        console.warn(`Safe scroll timed out after ${maxAttempts} attempts for card: ${cardId}`);
+      }
+    };
+    
+    tryScroll();
+  };
+
   const handleNotificationNavigation = (cardId, type) => {
     if (!cardId) return;
     
@@ -3761,13 +3824,7 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
     
     const foundCardIndex = feedCards.findIndex(c => String(c.id) === String(cardId));
     if (foundCardIndex !== -1) {
-      const cardEl = document.getElementById(`card-${cardId}`);
-      if (cardEl) {
-        cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      if (type === 'comment' || type === 'reply') {
-        setOpenCommentsForCardId(String(cardId));
-      }
+      safeScrollToCard(cardId, type);
     } else {
       console.log("Card not found in active feed list, querying directly from Supabase...");
       supabase
@@ -3801,16 +3858,11 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
               return [mappedCard, ...prev];
             });
             
-            setTimeout(() => {
-              const cardEl = document.getElementById(`card-${cardId}`);
-              if (cardEl) {
-                cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-              if (type === 'comment' || type === 'reply') {
-                setOpenCommentsForCardId(String(cardId));
-              }
-            }, 300);
+            safeScrollToCard(cardId, type);
           }
+        })
+        .catch((err) => {
+          console.error("Direct card fetch for deep link failed:", err);
         });
     }
   };
@@ -3857,12 +3909,24 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
     }
   }, [feedCards]);
 
-  // 홈 화면 최초 실행 시 쿼리 파라미터 기반 딥링킹 인입 청취 훅 (레이스 컨디션 차단 마운트 대기 등록)
+  // 홈 화면 최초 실행 시 쿼리 파라미터 기반 딥링킹 인입 청취 훅 (카카오톡 인앱 브라우저의 해시 파라미터 믹싱까지 통합 검출)
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const cardId = params.get('notifCardId') || params.get('cardId') || params.get('id');
-    const type = params.get('notifType');
+    const getParam = (name) => {
+      const searchParams = new URLSearchParams(window.location.search);
+      if (searchParams.has(name)) return searchParams.get(name);
+      
+      const hashIndex = window.location.hash.indexOf('?');
+      if (hashIndex !== -1) {
+        const hashParams = new URLSearchParams(window.location.hash.substring(hashIndex));
+        if (hashParams.has(name)) return hashParams.get(name);
+      }
+      return null;
+    };
+
+    const cardId = getParam('notifCardId') || getParam('cardId') || getParam('id');
+    const type = getParam('notifType');
     if (cardId) {
+      // 주소창의 파라미터를 은혜롭게 갈무리하여 주소창을 깔끔히 청소
       window.history.replaceState({}, document.title, window.location.pathname);
       console.log("Deep link query params detected, saving to pending:", { cardId, type });
       setPendingNotif({ cardId, type });
@@ -3875,9 +3939,10 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
       const { cardId, type } = pendingNotif;
       setPendingNotif(null);
       console.log("Executing pending notification deep link:", { cardId, type });
+      // 안전 리트라이 Polling 헬퍼를 직접 작동하므로 지연시간을 200ms로 단축하여 인입 반응 속도 극대화
       setTimeout(() => {
         handleNotificationNavigation(cardId, type);
-      }, 800);
+      }, 200);
     }
   }, [feedCards, pendingNotif]);
 
@@ -5204,9 +5269,7 @@ const getGreetingMessage = () => {
     if (isOwnProfile) {
       return [...myCreatedCards].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     } else {
-      return feedCards
-        .filter(c => c.author === activeProfileUser)
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      return [...otherUserCreatedCards].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
   };
 
@@ -5219,23 +5282,39 @@ const getGreetingMessage = () => {
     }
   };
 
-  useEffect(() => {
-    setProfileTab('created');
-    const fetchOtherUserSaved = async () => {
-      if (!activeProfileUser || activeProfileUser === nickname || activeProfileUser === "은혜나눔인" || activeProfileUser === "나의 서재") {
+  const fetchOtherUserData = async (targetUsername) => {
+    if (!targetUsername || targetUsername === nickname || targetUsername === "은혜나눔인" || targetUsername === "나의 서재") {
+      setOtherUserSavedCards([]);
+      setOtherUserCreatedCards([]);
+      return;
+    }
+    setIsFetchingOtherSaved(true);
+    setIsFetchingOtherCreated(true);
+    try {
+      let targetUserId = null;
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id')
+        .eq('nickname', targetUsername)
+        .maybeSingle();
+        
+      if (userData) {
+        targetUserId = userData.id;
+      } else {
+        const matchingCard = feedCards.find(c => c.author === targetUsername);
+        if (matchingCard) {
+          targetUserId = matchingCard.author_id;
+        }
+      }
+
+      if (!targetUserId) {
         setOtherUserSavedCards([]);
+        setOtherUserCreatedCards([]);
         return;
       }
-      setIsFetchingOtherSaved(true);
-      try {
-        const matchingCard = feedCards.find(c => c.author === activeProfileUser);
-        if (!matchingCard || !matchingCard.author_id) {
-          setOtherUserSavedCards([]);
-          setIsFetchingOtherSaved(false);
-          return;
-        }
-        const targetUserId = matchingCard.author_id;
 
+      // 병렬로 둘 다 가져와서 무결하게 이식
+      const fetchSaved = async () => {
         const { data, error } = await supabase
           .from('bookmarks')
           .select(`
@@ -5254,9 +5333,7 @@ const getGreetingMessage = () => {
             )
           `)
           .eq('user_id', targetUserId);
-
         if (error) throw error;
-
         if (data) {
           const mapped = data
             .filter(item => item.cards !== null)
@@ -5273,20 +5350,64 @@ const getGreetingMessage = () => {
               commentCount: 0
             }))
             .filter(c => c.author_id !== targetUserId);
-          
           setOtherUserSavedCards(mapped);
         } else {
           setOtherUserSavedCards([]);
         }
-      } catch (err) {
-        console.error("Error fetching other user saved cards:", err);
-        setOtherUserSavedCards([]);
-      } finally {
-        setIsFetchingOtherSaved(false);
-      }
-    };
-    fetchOtherUserSaved();
-  }, [activeProfileUser, nickname, feedCards]);
+      };
+
+      const fetchCreated = async () => {
+        const { data, error } = await supabase
+          .from('cards')
+          .select(`
+            *,
+            users!author_id (nickname, profile_image),
+            comments (id, comment_text, user_id)
+          `)
+          .eq('author_id', targetUserId)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        if (data) {
+          const mapped = data.map(c => {
+            const commentsList = c.comments || [];
+            const normalComments = commentsList.filter(
+              com => com.comment_text !== '__BIBLEGRAM_SHARE_ACTION__' && 
+                     !com.comment_text.startsWith('__BIBLEGRAM_NOTIF__') &&
+                     !com.comment_text.startsWith('__BIBLEGRAM_COMMENT_LIKE__:')
+            );
+            return {
+              id: c.id,
+              text: c.verse_text,
+              image: c.image_url,
+              audio: c.audio_url || 'web-speech',
+              meditation: c.meditation,
+              userThought: c.user_thought,
+              author: c.author_nickname,
+              author_id: c.author_id,
+              likes: c.likes_count,
+              commentCount: normalComments.length,
+              created_at: c.created_at
+            };
+          });
+          setOtherUserCreatedCards(mapped);
+        } else {
+          setOtherUserCreatedCards([]);
+        }
+      };
+
+      await Promise.all([fetchSaved(), fetchCreated()]);
+    } catch (err) {
+      console.error("Error fetching all other user data:", err);
+    } finally {
+      setIsFetchingOtherSaved(false);
+      setIsFetchingOtherCreated(false);
+    }
+  };
+
+  useEffect(() => {
+    setProfileTab('created');
+    fetchOtherUserData(activeProfileUser);
+  }, [activeProfileUser, nickname]);
   
     const activeMeta = USER_PROFILES_META[activeProfileUser] || { 
       name: activeProfileUser === nickname ? nickname : activeProfileUser, 
@@ -5482,6 +5603,7 @@ return (
 
             {/* 1. 피드 뷰 영역 */}
             <div 
+              id="feed-cards-container"
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
@@ -5560,46 +5682,28 @@ return (
                 {/* AI 특별 성화카드 선택 시 표출되는 미술 스타일 그리드 */}
                 {cardType === 'special' && (
                   <div className="mb-5 animate-fade-in text-left">
-                    {/* 특별카드 자정 기준 하루 1회 비용 관리 쿨타임 가드 알림 */}
-                    {(() => {
-                      const todayKstStr = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
-                      const isUsedToday = lastSpecialCreateDate === todayKstStr;
-                      if (isUsedToday) {
-                        return (
-                          <div className="mb-4 bg-red-500/10 border border-red-500/25 p-3 rounded-2xl flex items-center justify-center gap-2 text-center text-red-500 font-sans font-extrabold text-[12px] tracking-wide animate-pulse">
-                            <span>🔒 특별 AI 성화카드는 오늘 이미 창조하셨습니다 (내일 다시 생성 가능)</span>
-                          </div>
-                        );
-                      }
-                      return (
-                        <div className="mb-4 bg-[#DFBA73]/10 border border-[#DFBA73]/25 p-3 rounded-2xl flex items-center justify-center gap-2 text-center text-[#7C5A26] font-sans font-extrabold text-[12px] tracking-wide">
-                          <span>✨ 특별 카드는 하루에 딱 1번만 창조하실 수 있는 은혜의 기회입니다!</span>
-                        </div>
-                      );
-                    })()}
-
                     <label className={`text-[#A37B3F] font-bold tracking-wider mb-2 block transition-all ${isLargeFont ? 'text-[16px]' : 'text-[13px]'}`}>
                       AI 성화 미술 스타일 프리셋 선택
                     </label>
                     <div className="grid grid-cols-2 gap-2.5">
                       {[
-                        { id: 'Classic Holy', name: 'Classic Holy', desc: '렘브란트/밀레풍의 유화 성화' },
-                        { id: 'Modern Minimal', name: 'Modern Minimal', desc: '차분하고 맑은 일러스트' },
-                        { id: 'Cinematic Moody', name: 'Cinematic Moody', desc: '웅장한 경관과 명암 대비' },
-                        { id: 'Abstract Spiritual', name: 'Abstract Spiritual', desc: '몽환적인 추상화와 은하수' }
+                        { id: 'Ghibli Art', name: '지브리 애니메이션', desc: '아날로그 감성의 밝고 맑은 화풍' },
+                        { id: 'Felt Papercut', name: '미니멀 펠트 컷아웃', desc: '가독성이 압도적인 북유럽 그래픽' },
+                        { id: 'Neon Cyberpunk', name: '미래형 네온 성소', desc: '강렬한 네온 빛과 빛나는 우주적 영성' },
+                        { id: 'Dark Renaissance', name: '대리석 & 다크 르네상스', desc: '대리석 조각과 깊은 명암의 경건함' }
                       ].map(preset => (
                         <button
                           type="button"
                           key={preset.id}
                           onClick={() => setSelectedStyle(preset.id)}
-                          className={`p-3.5 rounded-2xl border flex flex-col text-left transition-all duration-300 active:scale-95 ${
+                          className={`p-3 rounded-2xl border flex flex-col text-left transition-all duration-300 active:scale-[0.96] min-h-[72px] justify-between ${
                             selectedStyle === preset.id
                               ? 'bg-[#3A3025] border-[#3A3025] text-[#DFBA73] shadow-md'
                               : 'bg-white border-[#D8CFC0] text-stone-700 hover:bg-[#F4EFE6]/50 shadow-sm'
                           }`}
                         >
-                          <span className="text-[12.5px] font-black">{preset.name}</span>
-                          <span className={`text-[10px] leading-tight mt-0.5 ${selectedStyle === preset.id ? 'text-stone-300' : 'text-stone-400'}`}>
+                          <span className="text-[12px] font-black leading-tight break-keep">{preset.name}</span>
+                          <span className={`text-[9px] leading-tight mt-1 break-keep ${selectedStyle === preset.id ? 'text-stone-300' : 'text-stone-400'}`}>
                             {preset.desc}
                           </span>
                         </button>
@@ -5733,11 +5837,13 @@ return (
                       (() => {
                         const todayKstStr = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
                         const isUsedToday = lastSpecialCreateDate === todayKstStr;
-                        return (
+                        return isUsedToday ? (
+                          <div className="w-[90%] sm:w-auto bg-red-500/10 border border-red-500/25 p-3 rounded-2xl flex items-center justify-center gap-2 text-center text-[#ef4444] font-sans font-extrabold text-[12px] tracking-wide animate-pulse">
+                            <span>🔒 특별 AI 성화카드는 오늘 이미 창조하셨습니다 (내일 다시 생성 가능)</span>
+                          </div>
+                        ) : (
                           <span className={`inline-flex items-center gap-1.5 bg-[#F6EFE2] border border-[#DFBA73]/45 px-5 py-2 rounded-full shadow-[0_3px_12px_rgba(223,186,115,0.15)] font-sans font-black tracking-wide text-[#7C5A26] transition-all animate-pulse duration-[2000ms] text-center justify-center w-[90%] sm:w-auto ${isLargeFont ? 'text-[14px]' : 'text-[12.5px]'}`}>
-                            {isUsedToday 
-                              ? "🔔 오늘 특별 성화 창조 한도 초과 (내일 생성 가능)" 
-                              : "✨ 오늘 특별 성화 창조 가능 : 1회 남음"}
+                            ✨ 오늘 특별 성화 창조 가능 : 1회 남음
                           </span>
                         );
                       })()
