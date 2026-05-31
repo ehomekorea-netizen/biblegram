@@ -999,7 +999,7 @@ const audioRef = useRef(null);
   const handleShareClick = async (e) => {
     e.stopPropagation();
     
-    // Kakao SDK 공유 우선 시도 (CORS 및 카카오 봇의 쿼리 주소 스크랩 오류 원천 박멸)
+    // 카카오 SDK 공유 우선 시도 (이중 공유 격발 가능성을 0%로 완벽 차단하는 초고속 동기식 호출)
     if (window.Kakao && window.Kakao.isInitialized()) {
       try {
         let originImage = card.image || '';
@@ -1018,162 +1018,13 @@ const audioRef = useRef(null);
           // Unsplash CDN은 카카오 봇의 스크랩을 100% 무조건 완벽 허용하므로, 프록시 없이 순수 원본 주소를 다이렉트로 전달!
           finalImageUrl = originImage;
         } else {
-          // 2. fal.ai 등 차단 필터가 걸려있는 외부 고화질 성화인 경우:
-          // 브라우저 캔버스가 오염(Tainted CORS)되지 않도록, 백엔드 이미지 프록시 주소를 Image src로 사용하여 다운로드받고
-          // 이를 1:1 정사각형 고화질 크롭 이미지로 렌더링한 뒤 카카오 서버에 직접 얹어 카카오 공식 URL(k.kakaocdn.net)을 발급받아 공유합니다!
-          onShowToast("고화질 성화 공유 이미지를 준비하고 있습니다...", "info");
-
-          // 특수문자 및 쿼리 파라미터 유실을 막고 Base64 특수부호(+, /, =) 에러를 원천 배제하는 이중 URL 인코딩 (Double URL Encoding)
-          const doubleEncoded = encodeURIComponent(encodeURIComponent(originImage));
-          const proxySrc = `${window.location.origin}/api/image-proxy?url=${doubleEncoded}&t=${new Date().getTime()}`;
-
-          finalImageUrl = await new Promise((resolve) => {
-            const timeout = setTimeout(() => {
-              // 5초 내 미완료 시 카카오 원본 리다이렉트 주소로 안전 폴백
-              resolve(proxySrc);
-            }, 6000);
-
-            try {
-              const img = new Image();
-              img.crossOrigin = "anonymous"; // 프록시 API를 거치므로 CORS 100% 통과!
-              img.src = proxySrc;
-
-              img.onload = () => {
-                try {
-                  const canvas = document.createElement('canvas');
-                  // 성도님이 원하시는 영롱한 1:1 정사각형 비율 썸네일 해상도 사수
-                  canvas.width = 600;
-                  canvas.height = 600;
-                  const ctx = canvas.getContext('2d');
-                  if (!ctx) {
-                    clearTimeout(timeout);
-                    return resolve(proxySrc);
-                  }
-
-                  // 1:1 비율 Aspect Fill 렌더링
-                  const imgRatio = img.width / img.height;
-                  let drawWidth = canvas.width;
-                  let drawHeight = canvas.height;
-                  let offsetX = 0;
-                  let offsetY = 0;
-
-                  if (imgRatio > 1) {
-                    drawWidth = canvas.height * imgRatio;
-                    offsetX = (canvas.width - drawWidth) / 2;
-                  } else {
-                    drawHeight = canvas.width / imgRatio;
-                    offsetY = (canvas.height - drawHeight) / 2;
-                  }
-
-                  ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-
-                  // 3. 말씀 카드 최종 완성형 합성 그래픽 가동
-                  // 가독성을 극대화하고 성스러운 명암을 주기 위한 어두운 그라데이션 오버레이 레이어 덮기
-                  ctx.fillStyle = 'rgba(0, 0, 0, 0.48)';
-                  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                  // 성소 고유의 품격 있는 골드 테두리 액자 프레임 드로잉 (#DFBA73)
-                  ctx.strokeStyle = 'rgba(223, 186, 115, 0.35)';
-                  ctx.lineWidth = 2;
-                  ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
-
-                  // 성경 구절 그리기 데코레이션
-                  ctx.fillStyle = '#ffffff';
-                  ctx.textAlign = 'center';
-                  ctx.textBaseline = 'middle';
-                  ctx.font = "bold 23px 'KoPub Batang', 'Nanum Myeongjo', 'Georgia', serif";
-
-                  // 텍스트 줄바꿈 연산
-                  const words = card.text.split('');
-                  let line = '';
-                  const lines = [];
-                  const maxWidth = canvas.width - 100;
-                  const lineHeight = 38;
-
-                  for (let n = 0; n < words.length; n++) {
-                    const testLine = line + words[n];
-                    const metrics = ctx.measureText(testLine);
-                    const testWidth = metrics.width;
-                    if (testWidth > maxWidth && n > 0) {
-                      lines.push(line);
-                      line = words[n];
-                    } else {
-                      line = testLine;
-                    }
-                  }
-                  lines.push(line);
-
-                  // 세로 중앙 배치 계산
-                  const totalHeight = lines.length * lineHeight;
-                  let startY = (canvas.height / 2) - (totalHeight / 2) + (lineHeight / 2) - 10;
-
-                  lines.forEach((lineStr) => {
-                    // 글자 자체에 우아한 명조의 입체감을 주는 은은한 섀도우 연출
-                    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-                    ctx.shadowBlur = 5;
-                    ctx.shadowOffsetX = 1;
-                    ctx.shadowOffsetY = 2;
-                    ctx.fillText(lineStr, canvas.width / 2, startY);
-                    startY += lineHeight;
-                  });
-
-                  // 그림자 효과 해제
-                  ctx.shadowColor = 'transparent';
-                  ctx.shadowBlur = 0;
-                  ctx.shadowOffsetX = 0;
-                  ctx.shadowOffsetY = 0;
-
-                  // 하단에 저자 닉네임 기재
-                  ctx.fillStyle = '#DFBA73'; // 황금빛 정체성 색상 사수
-                  ctx.font = "bold 13px 'Georgia', serif";
-                  ctx.fillText(`by ${card.author || '은혜나눔인'} 🌿`, canvas.width / 2, canvas.height - 60);
-
-                  canvas.toBlob(async (blob) => {
-                    if (!blob) {
-                      clearTimeout(timeout);
-                      return resolve(proxySrc);
-                    }
-
-                    try {
-                      const file = new File([blob], 'share_ratio_square.jpg', { type: 'image/jpeg' });
-                      window.Kakao.Share.uploadImage({
-                        file: [file]
-                      }).then((res) => {
-                        clearTimeout(timeout);
-                        if (res && res.infos && res.infos.original && res.infos.original.url) {
-                          // 카카오 공식 서버 주소(http://k.kakaocdn.net/...) 발급 완료!
-                          resolve(res.infos.original.url);
-                        } else {
-                          resolve(proxySrc);
-                        }
-                      }).catch(() => {
-                        clearTimeout(timeout);
-                        resolve(proxySrc);
-                      });
-                    } catch (e2) {
-                      clearTimeout(timeout);
-                      resolve(proxySrc);
-                    }
-                  }, 'image/jpeg', 0.95);
-
-                } catch (errCanvas) {
-                  clearTimeout(timeout);
-                  resolve(proxySrc);
-                }
-              };
-
-              img.onerror = () => {
-                clearTimeout(timeout);
-                resolve(proxySrc);
-              };
-
-            } catch (errImage) {
-              clearTimeout(timeout);
-              resolve(proxySrc);
-            }
-          });
+          // 2. fal.ai 등 외부 고화질 성화인 경우:
+          // 카카오 봇의 쿼리 스트링 거부 정책을 우회하기 위해 정적 Clean URL 이미지 프록시로 초고속 위장 매핑!
+          const cleanPath = originImage.replace(/^https?:\/\//i, '');
+          finalImageUrl = `${window.location.origin}/api/image-proxy/${cleanPath}`;
         }
 
+        // 지연 시간 0%의 순수한 카카오톡 SDK 피드 메시지 공유 즉시 격발!
         window.Kakao.Share.sendDefault({
           objectType: 'feed',
           content: {
@@ -1198,7 +1049,7 @@ const audioRef = useRef(null);
           ],
         });
         
-        // 공유 횟수 증가 연동
+        // 공유 횟수 증가 및 중복 없는 확실한 조기 리턴
         handleShareCountUpdate();
         return;
       } catch (errKakao) {
@@ -1206,7 +1057,7 @@ const audioRef = useRef(null);
       }
     }
 
-    // 카카오 공유가 비활성화되어 있거나 실패한 경우 기기 공유 UI 트리거
+    // 카카오 공유를 지원하지 않거나 실패했을 때만 최후의 대체 수단으로 기기 공유 UI 트리거
     handleDeviceShare(e);
 
     // 로그인된 사용자에 한해 1인 1회 카운팅
