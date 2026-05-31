@@ -1003,14 +1003,32 @@ const audioRef = useRef(null);
     let sharedViaKakao = false;
     if (window.Kakao && window.Kakao.isInitialized()) {
       try {
-        // fal.ai 다이렉트 이미지나 비정상 도메인은 카카오 공유 서버의 스크래핑 무너짐(Internal Server Error)을 방지하기 위해 안전한 대표 이미지로 우회
         let safeImageUrl = card.image || '';
         if (safeImageUrl.startsWith('//')) {
           safeImageUrl = 'https:' + safeImageUrl;
         }
-        if (!safeImageUrl || safeImageUrl.includes('fal.run') || safeImageUrl.includes('fal.media') || !safeImageUrl.startsWith('http')) {
-          safeImageUrl = "https://images.unsplash.com/photo-1544764200-d834fd210a23?q=80&w=1080&auto=format&fit=crop";
+        
+        // 1. 일반 Unsplash 성화 이미지는 카카오 서버가 완벽하게 스크랩하므로 100% 원래 말씀의 이미지 그대로 전송!
+        if (safeImageUrl.includes('unsplash.com')) {
+          // Unsplash 원본 이미지 그대로 전송하여 말씀 구절과 이미지의 정확한 일치성 완벽 보장
+        } 
+        // 2. fal.ai 임시 큐 도메인이거나 비어있는 경우에만 카카오 서버 스크랩 무너짐을 방지하고자 동적 영적 무드 테마 매칭 우회
+        else if (!safeImageUrl || safeImageUrl.includes('fal.run') || !safeImageUrl.startsWith('http')) {
+          // 해당 말씀 카드가 가진 영적/신학적 무드 테마(visualTheme)에 어울리는 대표 Unsplash 이미지를 동적으로 맵핑하여 구절의 조화를 유지
+          const theme = (card.visualTheme || 'light').toLowerCase().trim();
+          const themeFallbackMap = {
+            cross: "https://images.unsplash.com/photo-1544764200-d834fd210a23?q=80&w=1080&auto=format&fit=crop",
+            light: "https://images.unsplash.com/photo-1495616811223-4d98c6e9c869?q=80&w=1080&auto=format&fit=crop",
+            nature: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?q=80&w=1080&auto=format&fit=crop",
+            water: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?q=80&w=1080&auto=format&fit=crop",
+            night: "https://images.unsplash.com/photo-1506318137071-a8e063b4bec0?q=80&w=1080&auto=format&fit=crop",
+            mountain: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=1080&auto=format&fit=crop",
+            love: "https://images.unsplash.com/photo-1461530751191-4446b858f484?q=80&w=1080&auto=format&fit=crop",
+            snow: "https://images.unsplash.com/photo-1483921020237-2ff51e8e4b22?q=80&w=1080&auto=format&fit=crop"
+          };
+          safeImageUrl = themeFallbackMap[theme] || themeFallbackMap['light'];
         } else {
+          // fal.media 등 카카오 콘솔에서 비교적 스크랩을 지원하는 실주소 형태는 정상적으로 절대 경로 보정하여 전송
           try {
             const urlObj = new URL(safeImageUrl);
             safeImageUrl = urlObj.toString();
