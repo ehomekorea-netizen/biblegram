@@ -620,6 +620,7 @@ const audioRef = useRef(null);
     const clickTimeoutRef = useRef(null);
     const likeLongPressTimerRef = useRef(null);
     const isLikeLongPressActiveRef = useRef(false);
+    const isSharingRef = useRef(false);
     const [muteOverlay, setMuteOverlay] = useState(null); // 'volume-on' | 'volume-off' | null
     const [doubleTapHearts, setDoubleTapHearts] = useState([]); // [{ id, x, y }]
   
@@ -999,7 +1000,54 @@ const audioRef = useRef(null);
   const handleShareClick = async (e) => {
     e.stopPropagation();
     
-    // 카카오 SDK 공유 우선 시도 (이중 공유 격발 가능성을 0%로 완벽 차단하는 초고속 동기식 호출)
+    // 1. 중복 클릭 방지 락(Lock)
+    if (isSharingRef.current) return;
+    isSharingRef.current = true;
+
+    // 공유수 증가 내부 함수
+    const performShareCountUpdate = async () => {
+      if (!user) return;
+      const localSharedKey = `biblegram_shared_${card.id}_${user.id}`;
+      const alreadySharedLocal = localStorage.getItem(localSharedKey) === 'true';
+      if (alreadySharedLocal) return;
+
+      try {
+        const { data: existingShare, error: checkError } = await supabase
+          .from('comments')
+          .select('id')
+          .eq('card_id', card.id)
+          .eq('user_id', user.id)
+          .eq('comment_text', '__BIBLEGRAM_SHARE_ACTION__')
+          .limit(1);
+
+        if (checkError) throw checkError;
+
+        if (existingShare && existingShare.length > 0) {
+          localStorage.setItem(localSharedKey, 'true');
+          return;
+        }
+
+        const { error: insertError } = await supabase
+          .from('comments')
+          .insert({
+            card_id: card.id,
+            user_id: user.id,
+            author_nickname: nickname || '은혜나눔인',
+            comment_text: '__BIBLEGRAM_SHARE_ACTION__'
+          });
+
+        if (insertError) throw insertError;
+
+        const nextVal = sharesCount + 1;
+        setSharesCount(nextVal);
+        localStorage.setItem(localSharedKey, 'true');
+        if (onShareCountChange) onShareCountChange(card.id, nextVal);
+      } catch (err) {
+        console.error("Error updating share count:", err);
+      }
+    };
+    
+    // 카카오 SDK 공유 시도
     if (window.Kakao && window.Kakao.isInitialized()) {
       try {
         let originImage = card.image || '';
@@ -1019,9 +1067,95 @@ const audioRef = useRef(null);
           finalImageUrl = originImage;
         } else {
           // 2. fal.ai 등 외부 고화질 성화인 경우:
-          // 카카오 봇의 쿼리 스트링 거부 정책을 우회하기 위해 정적 Clean URL 이미지 프록시로 초고속 위장 매핑!
-          const cleanPath = originImage.replace(/^https?:\/\//i, '');
-          finalImageUrl = `${window.location.origin}/api/image-proxy/${cleanPath}`;
+          // 성도님의 지침대로 성화 썸네일을 1:1 정사각형으로 깨끗하게 캡처하여 카카오 CDN 서버로 업로드 후 발급받은 정적 주소를 사용합니다.
+          onShowToast("성화 썸네일을 1:1 비율로 캡처하여 카카오톡 서버로 업로드하고 있습니다...", "info");
+
+          // 특수문자 및 쿼리 유실 방지를 위한 이중 URL 인코딩 프록시 주소 생성
+          const doubleEncoded = encodeURIComponent(encodeURIComponent(originImage));
+          const proxySrc = `${window.location.origin}/api/image-proxy?url=${doubleEncoded}&t=${new Date().getTime()}`;
+
+          finalImageUrl = await new Promise((resolve) => {
+            const timeout = setTimeout(() => {
+              // 6초 타임아웃 시 안전한 폴백용 프록시 다이렉트 주소 반환
+              resolve(proxySrc);
+            }, 6000);
+
+            try {
+              const img = new Image();
+              img.crossOrigin = "anonymous"; // 프록시 백엔드가 CORS 헤더를 달아주므로 100% 통과!
+              img.src = proxySrc;
+
+              img.onload = () => {
+                try {
+                  const canvas = document.createElement('canvas');
+                  canvas.width = 400;
+                  canvas.height = 400;
+                  const ctx = canvas.getContext('2d');
+                  if (!ctx) {
+                    clearTimeout(timeout);
+                    return resolve(proxySrc);
+                  }
+
+                  // 1:1 정사각형 중앙 Aspect Fill 크롭
+                  const imgRatio = img.width / img.height;
+                  let drawWidth = canvas.width;
+                  let drawHeight = canvas.height;
+                  let offsetX = 0;
+                  let offsetY = 0;
+
+                  if (imgRatio > 1) {
+                    drawWidth = canvas.height * imgRatio;
+                    offsetX = (canvas.width - drawWidth) / 2;
+                  } else {
+                    drawHeight = canvas.width / imgRatio;
+                    offsetY = (canvas.height - drawHeight) / 2;
+                  }
+
+                  ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+
+                  canvas.toBlob((blob) => {
+                    if (!blob) {
+                      clearTimeout(timeout);
+                      return resolve(proxySrc);
+                    }
+
+                    try {
+                      const file = new File([blob], 'thumb_square.jpg', { type: 'image/jpeg' });
+                      window.Kakao.Share.uploadImage({
+                        file: [file]
+                      }).then((res) => {
+                        clearTimeout(timeout);
+                        if (res && res.infos && res.infos.original && res.infos.original.url) {
+                          resolve(res.infos.original.url);
+                        } else {
+                          resolve(proxySrc);
+                        }
+                      }).catch(() => {
+                        clearTimeout(timeout);
+                        resolve(proxySrc);
+                      });
+                    } catch (e2) {
+                      clearTimeout(timeout);
+                      resolve(proxySrc);
+                    }
+                  }, 'image/jpeg', 0.90);
+
+                } catch (errCanvas) {
+                  clearTimeout(timeout);
+                  resolve(proxySrc);
+                }
+              };
+
+              img.onerror = () => {
+                clearTimeout(timeout);
+                resolve(proxySrc);
+              };
+
+            } catch (errImage) {
+              clearTimeout(timeout);
+              resolve(proxySrc);
+            }
+          });
         }
 
         // 지연 시간 0%의 순수한 카카오톡 SDK 피드 메시지 공유 즉시 격발!
@@ -1049,61 +1183,19 @@ const audioRef = useRef(null);
           ],
         });
         
-        // 공유 횟수 증가 및 중복 없는 확실한 조기 리턴
-        handleShareCountUpdate();
-        return;
+        await performShareCountUpdate();
       } catch (errKakao) {
         console.error("Kakao share failed, falling back:", errKakao);
+      } finally {
+        isSharingRef.current = false;
       }
+      return; // 카카오톡 공유 완료 후 조기 리턴! 피드의 공유 버튼에서는 기기 공유(두번째 팝업)를 영구 배제합니다.
     }
 
-    // 카카오 공유를 지원하지 않거나 실패했을 때만 최후의 대체 수단으로 기기 공유 UI 트리거
-    handleDeviceShare(e);
-
-    // 로그인된 사용자에 한해 1인 1회 카운팅
-    if (!user) return;
-    
-    const localSharedKey = `biblegram_shared_${card.id}_${user.id}`;
-    const alreadySharedLocal = localStorage.getItem(localSharedKey) === 'true';
-    if (alreadySharedLocal) return;
-
-    try {
-      // 1. 이미 DB에 공유 정보(__BIBLEGRAM_SHARE_ACTION__)가 있는지 검색
-      const { data: existingShare, error: checkError } = await supabase
-        .from('comments')
-        .select('id')
-        .eq('card_id', card.id)
-        .eq('user_id', user.id)
-        .eq('comment_text', '__BIBLEGRAM_SHARE_ACTION__')
-        .limit(1);
-
-      if (checkError) throw checkError;
-
-      if (existingShare && existingShare.length > 0) {
-        localStorage.setItem(localSharedKey, 'true');
-        return;
-      }
-
-      // 2. DB에 공유 카운트용 특별 댓글 삽입
-      const { error: insertError } = await supabase
-        .from('comments')
-        .insert({
-          card_id: card.id,
-          user_id: user.id,
-          author_nickname: nickname || '은혜나눔인',
-          comment_text: '__BIBLEGRAM_SHARE_ACTION__'
-        });
-
-      if (insertError) throw insertError;
-
-      // 3. 로컬 및 전역 상태 동기화 및 캐싱
-      const nextVal = sharesCount + 1;
-      setSharesCount(nextVal);
-      localStorage.setItem(localSharedKey, 'true');
-      if (onShareCountChange) onShareCountChange(card.id, nextVal);
-    } catch (err) {
-      console.error("Error updating share count:", err);
-    }
+    // 카카오 SDK를 지원하지 않는 PC 환경 등에서만 대체 텍스트 복사 및 안내
+    onShowToast("카카오톡을 찾을 수 없어 성경 텍스트가 클립보드에 은혜롭게 복사되었습니다.", "success");
+    handleCopy(e);
+    isSharingRef.current = false;
   };
 
 const handleOpenMeditation = (e) => {
