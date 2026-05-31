@@ -1067,6 +1067,67 @@ const audioRef = useRef(null);
 
                   ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
 
+                  // 3. 말씀 카드 최종 완성형 합성 그래픽 가동
+                  // 가독성을 극대화하고 성스러운 명암을 주기 위한 어두운 그라데이션 오버레이 레이어 덮기
+                  ctx.fillStyle = 'rgba(0, 0, 0, 0.48)';
+                  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                  // 성소 고유의 품격 있는 골드 테두리 액자 프레임 드로잉 (#DFBA73)
+                  ctx.strokeStyle = 'rgba(223, 186, 115, 0.35)';
+                  ctx.lineWidth = 2;
+                  ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+
+                  // 성경 구절 그리기 데코레이션
+                  ctx.fillStyle = '#ffffff';
+                  ctx.textAlign = 'center';
+                  ctx.textBaseline = 'middle';
+                  ctx.font = "bold 23px 'KoPub Batang', 'Nanum Myeongjo', 'Georgia', serif";
+
+                  // 텍스트 줄바꿈 연산
+                  const words = card.text.split('');
+                  let line = '';
+                  const lines = [];
+                  const maxWidth = canvas.width - 100;
+                  const lineHeight = 38;
+
+                  for (let n = 0; n < words.length; n++) {
+                    const testLine = line + words[n];
+                    const metrics = ctx.measureText(testLine);
+                    const testWidth = metrics.width;
+                    if (testWidth > maxWidth && n > 0) {
+                      lines.push(line);
+                      line = words[n];
+                    } else {
+                      line = testLine;
+                    }
+                  }
+                  lines.push(line);
+
+                  // 세로 중앙 배치 계산
+                  const totalHeight = lines.length * lineHeight;
+                  let startY = (canvas.height / 2) - (totalHeight / 2) + (lineHeight / 2) - 10;
+
+                  lines.forEach((lineStr) => {
+                    // 글자 자체에 우아한 명조의 입체감을 주는 은은한 섀도우 연출
+                    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+                    ctx.shadowBlur = 5;
+                    ctx.shadowOffsetX = 1;
+                    ctx.shadowOffsetY = 2;
+                    ctx.fillText(lineStr, canvas.width / 2, startY);
+                    startY += lineHeight;
+                  });
+
+                  // 그림자 효과 해제
+                  ctx.shadowColor = 'transparent';
+                  ctx.shadowBlur = 0;
+                  ctx.shadowOffsetX = 0;
+                  ctx.shadowOffsetY = 0;
+
+                  // 하단에 저자 닉네임 기재
+                  ctx.fillStyle = '#DFBA73'; // 황금빛 정체성 색상 사수
+                  ctx.font = "bold 13px 'Georgia', serif";
+                  ctx.fillText(`by ${card.author || '은혜나눔인'} 🌿`, canvas.width / 2, canvas.height - 60);
+
                   canvas.toBlob(async (blob) => {
                     if (!blob) {
                       clearTimeout(timeout);
