@@ -1003,12 +1003,28 @@ const audioRef = useRef(null);
     let sharedViaKakao = false;
     if (window.Kakao && window.Kakao.isInitialized()) {
       try {
+        // fal.ai 다이렉트 이미지나 비정상 도메인은 카카오 공유 서버의 스크래핑 무너짐(Internal Server Error)을 방지하기 위해 안전한 대표 이미지로 우회
+        let safeImageUrl = card.image || '';
+        if (safeImageUrl.startsWith('//')) {
+          safeImageUrl = 'https:' + safeImageUrl;
+        }
+        if (!safeImageUrl || safeImageUrl.includes('fal.run') || safeImageUrl.includes('fal.media') || !safeImageUrl.startsWith('http')) {
+          safeImageUrl = "https://images.unsplash.com/photo-1544764200-d834fd210a23?q=80&w=1080&auto=format&fit=crop";
+        } else {
+          try {
+            const urlObj = new URL(safeImageUrl);
+            safeImageUrl = urlObj.toString();
+          } catch (err2) {
+            safeImageUrl = "https://images.unsplash.com/photo-1544764200-d834fd210a23?q=80&w=1080&auto=format&fit=crop";
+          }
+        }
+
         window.Kakao.Share.sendDefault({
           objectType: 'feed',
           content: {
             title: '🌅 바이블그램 은혜의 말씀',
             description: card.text,
-            imageUrl: card.image,
+            imageUrl: safeImageUrl,
             link: {
               mobileWebUrl: `${window.location.origin}?cardId=${card.id}`,
               webUrl: `${window.location.origin}?cardId=${card.id}`,
