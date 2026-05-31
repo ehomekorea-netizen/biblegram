@@ -1010,16 +1010,16 @@ const audioRef = useRef(null);
             description: card.text,
             imageUrl: card.image,
             link: {
-              mobileWebUrl: window.location.origin,
-              webUrl: window.location.origin,
+              mobileWebUrl: `${window.location.origin}?cardId=${card.id}`,
+              webUrl: `${window.location.origin}?cardId=${card.id}`,
             },
           },
           buttons: [
             {
               title: '묵상 성소 입장하기',
               link: {
-                mobileWebUrl: window.location.origin,
-                webUrl: window.location.origin,
+                mobileWebUrl: `${window.location.origin}?cardId=${card.id}`,
+                webUrl: `${window.location.origin}?cardId=${card.id}`,
               },
             },
           ],
@@ -3860,7 +3860,7 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
   // 홈 화면 최초 실행 시 쿼리 파라미터 기반 딥링킹 인입 청취 훅 (레이스 컨디션 차단 마운트 대기 등록)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const cardId = params.get('notifCardId');
+    const cardId = params.get('notifCardId') || params.get('cardId') || params.get('id');
     const type = params.get('notifType');
     if (cardId) {
       window.history.replaceState({}, document.title, window.location.pathname);
