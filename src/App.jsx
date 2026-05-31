@@ -1023,16 +1023,9 @@ const audioRef = useRef(null);
           // 이를 1:1 정사각형 고화질 크롭 이미지로 렌더링한 뒤 카카오 서버에 직접 얹어 카카오 공식 URL(k.kakaocdn.net)을 발급받아 공유합니다!
           onShowToast("고화질 성화 공유 이미지를 준비하고 있습니다...", "info");
 
-          let encodedUrl = '';
-          try {
-            encodedUrl = btoa(encodeURIComponent(originImage).replace(/%([0-9A-F]{2})/g, (match, p1) => {
-              return String.fromCharCode(parseInt(p1, 16));
-            }));
-          } catch (eB) {
-            encodedUrl = btoa(originImage);
-          }
-
-          const proxySrc = `${window.location.origin}/api/image-proxy?code=${encodedUrl}&t=${new Date().getTime()}`;
+          // 특수문자 및 쿼리 파라미터 유실을 막고 Base64 특수부호(+, /, =) 에러를 원천 배제하는 이중 URL 인코딩 (Double URL Encoding)
+          const doubleEncoded = encodeURIComponent(encodeURIComponent(originImage));
+          const proxySrc = `${window.location.origin}/api/image-proxy?url=${doubleEncoded}&t=${new Date().getTime()}`;
 
           finalImageUrl = await new Promise((resolve) => {
             const timeout = setTimeout(() => {
