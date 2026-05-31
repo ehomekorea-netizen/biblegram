@@ -5204,70 +5204,6 @@ const uploadAudioToStorage = async (base64Data, userId) => {
   }
 };
 
-const uploadThumbnailToStorage = async (imageUrl, cardId) => {
-  try {
-    let finalUrl = imageUrl;
-    if (finalUrl.startsWith('//')) {
-      finalUrl = 'https:' + finalUrl;
-    }
-    
-    // CORS 캐시 오염을 철저하게 방지하기 위해 랜덤 타임스탬프 파라미터 추가
-    const separator = finalUrl.includes('?') ? '&' : '?';
-    const cleanUrl = `${finalUrl}${separator}t=${Date.now()}`;
-    
-    // 1. 이미지 로드 및 1:1 Aspect Fill 캔버스 크롭
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.src = cleanUrl;
-    
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = (e) => reject(new Error("Image load failed for thumbnail generation"));
-    });
-
-    const canvas = document.createElement('canvas');
-    canvas.width = 400;
-    canvas.height = 400;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const imgRatio = img.width / img.height;
-    let drawWidth = canvas.width;
-    let drawHeight = canvas.height;
-    let offsetX = 0;
-    let offsetY = 0;
-
-    if (imgRatio > 1) {
-      drawWidth = canvas.height * imgRatio;
-      offsetX = (canvas.width - drawWidth) / 2;
-    } else {
-      drawHeight = canvas.width / imgRatio;
-      offsetY = (canvas.height - drawHeight) / 2;
-    }
-
-    ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-
-    // 2. Blob 추출 및 Supabase Storage 'thumbnails' 버킷 업로드
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
-    if (!blob) return;
-
-    const fileName = `thumb_${cardId}.jpg`;
-    
-    const { error } = await supabase.storage
-      .from('thumbnails')
-      .upload(fileName, blob, {
-        contentType: 'image/jpeg',
-        cacheControl: 'max-age=31536000, public, immutable',
-        upsert: true
-      });
-
-    if (error) throw error;
-    console.log("Supabase storage 1:1 crop thumbnail successfully uploaded to thumbnails bucket for card ID:", cardId);
-  } catch (err) {
-    console.error("Failed to pre-render or upload thumbnail to Supabase Storage:", err);
-  }
-};
-
 
 const handlePublish = async () => {
       if (!user || !user.id) return;
@@ -5305,10 +5241,17 @@ const handlePublish = async () => {
           
         if (error) throw error;
 
-        // AI 고화질 성화인 경우에만 1:1 Aspect Fill 썸네일을 Supabase Storage 'thumbnails' 버킷에 백그라운드로 굽습니다!
+        // AI 고화질 성화인 경우에만 1:1 Aspect Fill 썸네일을 서버 사이드 크롭 API를 통해 백그라운드로 굽습니다!
         if (currentResult.image && !currentResult.image.includes('unsplash.com')) {
-          uploadThumbnailToStorage(currentResult.image, data.id).catch(err => {
-            console.error("Background 1:1 thumbnail pre-render failed:", err);
+          fetch('/api/create-thumbnail', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              imageUrl: currentResult.image,
+              cardId: data.id
+            })
+          }).catch(err => {
+            console.error("Background 1:1 thumbnail server-render trigger failed:", err);
           });
         }
 
