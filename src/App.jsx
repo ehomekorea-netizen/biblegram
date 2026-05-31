@@ -3004,7 +3004,7 @@ const [user, setUser] = useState(() => {
     const isLongPressActive = useRef(false);
     const [dailyCreateCount, setDailyCreateCount] = useState(0);
     const [cardType, setCardType] = useState('normal'); // 'normal' 또는 'special' (fal.ai AI 성화 분기용)
-    const [selectedStyle, setSelectedStyle] = useState('Classic Holy'); // AI 미술 스타일 프리셋
+    const [selectedStyle, setSelectedStyle] = useState('Ghibli Art'); // AI 미술 스타일 프리셋
     const [lastSpecialCreateDate, setLastSpecialCreateDate] = useState(() => {
       return localStorage.getItem('biblegram_last_special_date') || '';
     });
@@ -3729,17 +3729,8 @@ const [verseRefInput, setVerseRefInput] = useState(() => localStorage.getItem('b
         await fetchLikedStates();
         await fetchMyCreatedCards();
         
-        // 일일 말씀 생성 횟수 초기 셋팅 동기화
-        supabase
-          .from('users')
-          .select('daily_create_count')
-          .eq('id', user.id)
-          .single()
-          .then(({ data, error }) => {
-            if (!error && data) {
-              setDailyCreateCount(data.daily_create_count || 0);
-            }
-          });
+        // 일일 말씀 생성 횟수 초기 셋팅 동기화 및 쿨타임 복원 체크
+        checkUserCooldown(user.id);
       }
     };
     loadData();
@@ -4949,8 +4940,8 @@ const handleSearchVerse = async () => {
       }
     }
     
-    // 하루 3회 말씀카드 생성 및 12시간 쿨타임 제한 검증
-    if (user && user.id) {
+    // 하루 3회 말씀카드 생성 및 12시간 쿨타임 제한 검증 (일반 말씀카드일 때만)
+    if (cardType !== 'special' && user && user.id) {
       setIsAuthLoading(true);
       const cooldownStatus = await checkUserCooldown(user.id);
       setIsAuthLoading(false);
@@ -5038,7 +5029,9 @@ const handleSearchVerse = async () => {
         likes: 0
       });
       
-      await chargeOpportunity();
+      if (cardType !== 'special') {
+        await chargeOpportunity();
+      }
       setView('result');
       showToast(cardType === 'special' ? "AI 특별 성화말씀카드가 수려하게 창조되었습니다." : "성구의 신학적 분위기가 반영된 묵상 카드가 융합되었습니다.", "success");
     } catch (error) {
@@ -5055,7 +5048,9 @@ const handleSearchVerse = async () => {
         userThought: actualThought,
         likes: 0
       });
-      await chargeOpportunity();
+      if (cardType !== 'special') {
+        await chargeOpportunity();
+      }
       setView('result');
     }
   };

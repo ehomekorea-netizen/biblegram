@@ -431,11 +431,13 @@ export default async function handler(req, res) {
 
 [★ AI 이미지 프롬프트(imagePrompt) 작성 지침 ★]
 1. 미술 스타일 반영: 선택된 스타일에 맞춰 성경의 영적 의미와 경외감이 고스란히 묻어나는 환상적이고 수려한 영문 이미지 프롬프트를 작성하십시오.
-   - Classic Holy: Rembrandt/Millet style, heavy oil painting, warm and sacred illumination, golden lighting.
-   - Modern Minimal: Pastel tone illustration, modern, flat design, clean vector-style minimal look, soft colors.
-   - Cinematic Moody: Epic landscape scene, dramatic chiaroscuro lighting, deep shadows, cinematic composition, breathtaking scale.
-   - Abstract Spiritual: Mystical galaxy, stardust, abstract shapes of light and shadow, spiritual aurora, ethereal dreamlike texture.
-2. 필수 레이아웃 확보 규칙 강제 삽입:
+   - Ghibli Art: Studio Ghibli style, hand-drawn animation, anime key art, nostalgic, vibrant but soft pastel colors, watercolor textures, clear blue sky with fluffy white clouds, beautiful cinematic light.
+   - Felt Papercut: Minimalist felt illustration, papercut art style, simple geometric shapes, clean vector lines, flat colors, modern pastel palette, organic textures, cozy and comforting storybook design.
+   - Neon Cyberpunk: Cyberpunk spiritual art, bioluminescent neon glow, deep violet and cyan light accents, futuristic divine energy, hyper-detailed cosmic atmosphere, glowing particles, dark dramatic high-contrast background.
+   - Dark Renaissance: Dark Renaissance style, majestic white marble sculpture, dramatic Chiaroscuro lighting, deep shadows, classical fine art photography, hyper-realistic stone texture, dark muted atmospheric background.
+2. 밝고 화사한 조명 조건 강제 지침:
+   - 텍스트 자막이 뚜렷하게 식별되도록 전체적으로 밝고(bright), 화사하며(vibrant), 맑고 빛나는(luminous, warm sacred lighting) 배경을 구성해야 합니다. 극단적으로 어두운 밤, 칙칙한 회색/검은색, 어둡고 침침한 톤은 절대로 생성하지 말고 찬란한 빛이나 따뜻한 하늘, 은혜롭고 영광스러운 온기를 가미하여 가시성을 보장하십시오.
+3. 필수 레이아웃 확보 규칙 강제 삽입:
    - 텍스트 자막이 들어갈 자리를 확보하기 위해 영문 프롬프트 중간과 끝에 반드시 다음 문장을 단 한 단어도 빠짐없이 삽입하십시오:
      "Upper half and center of the image has empty misty sky for text overlay. In the far lower third of the frame, place the main object tiny as a silhouette. NO text, NO letters, clean background."
 
