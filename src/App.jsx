@@ -4947,8 +4947,8 @@ const handleSearchVerse = async () => {
       }
     }
     
-    // [로컬 캐시 체크] 이미 가져온 개역개정 본문인지 확인!
-    const cacheKey = `biblegram_cache_${normalizedRef}`;
+    // [로컬 캐시 체크] 이미 가져온 개역개정 본문인지 확인! (캐시 접두사를 v2로 변경하여 오염된 기존 캐시 강제 무력화)
+    const cacheKey = `biblegram_cache_v2_${normalizedRef}`;
     const cachedText = localStorage.getItem(cacheKey);
     if (cachedText) {
       setVerseText(cachedText);
