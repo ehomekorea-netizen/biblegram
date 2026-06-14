@@ -1714,9 +1714,12 @@ const handleAudioEnded = () => {
         const imgOpacity = isSpecialArt ? 0.85 : 0.68;
         return (
           <>
-            <div 
-              className="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-out" 
-              style={{ backgroundImage: `url(${card.image})`, opacity: imgOpacity }} 
+            <img 
+              src={card.image}
+              alt="Holy Scripture Background"
+              loading="lazy"
+              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-out" 
+              style={{ opacity: imgOpacity }} 
             />
             {/* 텍스트 가독성을 보장하되 성화 이미지의 화사한 광원감을 살리기 위해 그라데이션 필터 강도를 최적 감도로 완화 */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/65" />
@@ -1751,6 +1754,7 @@ const handleAudioEnded = () => {
 
       {card.audio && (
         <audio 
+          preload="none"
           ref={audioRef} 
           src={card.audio} 
           onEnded={handleAudioEnded} 
@@ -6254,7 +6258,8 @@ return (
                              onMouseLeave={() => isMyCreatedSection && handleThumbnailTouchEnd()}
                              onClick={() => handleThumbnailClick(card)}
                            >
-                             <img 
+                             <img
+                                loading="lazy" 
                                src={card.image} 
                                alt="thumb" 
                                className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-105 ${
